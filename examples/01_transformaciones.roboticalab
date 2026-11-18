@@ -1,0 +1,15 @@
+{
+  "format": "RoboticaLabActivity",
+  "version": 2,
+  "name": "01_transformaciones",
+  "teacherInstructions": "Lee los comentarios y ejecuta por celdas o paso a paso. CoppeliaSim se abre por separado.",
+  "cells": [
+    {
+      "source": "\"\"\"Transformación homogénea 3D con NumPy real.\"\"\"\nimport numpy as np\nfrom roboticalab import plot, connect, frame\n\nP = np.array([1.0, 2.0, 3.0, 1.0])\nT = np.eye(4)\nT[:3, 3] = [3, 1, 2]\nPf = T @ P\nplot(P, \"Inicial\")\nplot(Pf, \"Final\")\nconnect(P, Pf, \"Desplazamiento\")\nframe(T, \"Herramienta\")\nprint(\"P final:\", Pf)\n"
+    }
+  ],
+  "settings": {
+    "viewMode": "3d",
+    "legacyMatmul": false
+  }
+}

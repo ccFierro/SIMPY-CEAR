@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "roboticalab"
+version = "0.2.5"
+description = "CEAR RoboLab: cuaderno local de Python para robótica y CoppeliaSim"
+authors = [{name = "CEAR Inacap"}]
+requires-python = ">=3.12,<3.15"
+dependencies = ["numpy", "pyzmq", "cbor", "cbor2", "coppeliasim-zmqremoteapi-client", "jedi"]
+
+[tool.setuptools.packages.find]
+where = ["python"]

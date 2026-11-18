@@ -1,0 +1,8 @@
+# Entorno verificado con CPython 3.14.7, Windows x64.
+numpy==2.5.3
+pyzmq==27.2.0
+cbor==1.0.0
+cbor2==6.1.4
+coppeliasim-zmqremoteapi-client==2.0.4
+jedi==0.20.0
+parso==0.8.7

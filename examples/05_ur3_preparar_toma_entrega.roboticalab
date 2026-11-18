@@ -1,0 +1,49 @@
+{
+  "format": "RoboticaLabActivity",
+  "version": 2,
+  "name": "05 · UR3: preparar toma y entrega",
+  "teacherInstructions": "Objetivo: preparar un primer ciclo de toma y entrega con el UR3. Completa la tabla DH, la matriz de transformación y la función de movimiento articular. Luego registra dos posturas de la escena y usa DI_00, DO_00 y DI_01 para controlar la ventosa. Ejecuta las celdas en orden. Las últimas celdas contienen llamadas comentadas: actívalas solo cuando hayas comprobado el código y la escena. Por ahora los destinos son seis ángulos; el movimiento a coordenadas cartesianas llegará al incorporar IK.",
+  "settings": {
+    "legacyMatmul": false,
+    "viewMode": "2d",
+    "coppeliaHost": "127.0.0.1",
+    "coppeliaPort": 23000
+  },
+  "cells": [
+    {
+      "title": "1 · Conexión con UR3",
+      "collapsed": true,
+      "source": "# Conecta con la escena y conserva las rutas de las seis articulaciones.\nMODELO = \"UR3\"\nPUERTO = 23000\nclient, sim = connect_coppelia(port=PUERTO, timeout=15)\n\ndatos = leer_articulaciones(sim, \"/\" + MODELO)\nrutas = [dato[\"ruta\"] for dato in datos]\nq_inicio = np.array([dato[\"rad\"] for dato in datos])\nprint(\"UR3 conectado · articulaciones:\", len(rutas))"
+    },
+    {
+      "title": "2 · Tabla DH del UR3",
+      "collapsed": false,
+      "source": "# Completa las filas J2 a J6 con tu plantilla DH.\n# Cada fila es (a en metros, d en metros, alpha en radianes).\n# El ángulo theta de cada fila será q[i].\ntabla_DH = [\n    (0.0, 0.1519, np.pi / 2),  # J1: ejemplo\n    (None, None, None),        # J2\n    (None, None, None),        # J3\n    (None, None, None),        # J4\n    (None, None, None),        # J5\n    (None, None, None),        # J6\n]"
+    },
+    {
+      "title": "3 · Matriz DH y cinemática directa",
+      "collapsed": false,
+      "source": "# Completa matriz_dh() usando coseno y seno.\n# Debe devolver una matriz homogénea de 4 × 4.\ndef matriz_dh(theta, d, a, alpha):\n    c = np.cos(theta)\n    s = np.sin(theta)\n    ca = np.cos(alpha)\n    sa = np.sin(alpha)\n    raise NotImplementedError(\"Completa las cuatro filas de matriz_dh().\")\n\n\ndef cinematica_directa(q):\n    T = np.eye(4)\n    for i in range(6):\n        a, d, alpha = tabla_DH[i]\n        T = T @ matriz_dh(q[i], d, a, alpha)\n    return T"
+    },
+    {
+      "title": "4 · Movimiento suave por articulaciones",
+      "collapsed": false,
+      "source": "# Crea una función que reciba seis ángulos destino en radianes.\n# Lee los ángulos actuales y envía pasos intermedios a las seis articulaciones.\n# Usa sim.setJointTargetPosition(handle, angulo) y una pausa breve entre pasos.\nimport time\n\ndef mover_articulaciones(q_destino, pasos=30):\n    q_destino = np.array(q_destino, dtype=float)\n    if q_destino.shape != (6,):\n        raise ValueError(\"Se necesitan seis ángulos.\")\n    q_actual = np.array([\n        sim.getJointPosition(sim.getObject(ruta)) for ruta in rutas\n    ])\n    # Completa: interpola desde q_actual hasta q_destino.\n    # Envía cada conjunto de seis objetivos a CoppeliaSim.\n    raise NotImplementedError(\"Completa mover_articulaciones().\")"
+    },
+    {
+      "title": "5 · Entradas y ventosa",
+      "collapsed": false,
+      "source": "# Estas dos funciones son el puente con el Lua de la escena.\n# DI_00: láser detecta objeto. DI_01: objeto sujeto. DO_00: ventosa.\ndef leer_entrada(nombre):\n    return sim.getInt32Signal(nombre) == 1\n\ndef activar_ventosa(estado):\n    sim.setInt32Signal(\"DO_00\", int(bool(estado)))\n\n\n# Crea esperar_entrada(nombre, estado, tiempo_maximo).\n# Debe volver cuando la señal alcance el estado esperado\n# y producir un error si se agota el tiempo."
+    },
+    {
+      "title": "6 · Prueba de desplazamiento",
+      "collapsed": false,
+      "source": "# Cambia solo 5° de la primera articulación para una primera prueba.\nq_base = np.array([sim.getJointPosition(sim.getObject(ruta)) for ruta in rutas])\nq_prueba = q_base + np.radians([5, 0, 0, 0, 0, 0])\n\n# Cuando completes DH, compara las posiciones calculadas:\n# print(\"Inicio:\", cinematica_directa(q_base)[:3, 3])\n# print(\"Prueba:\", cinematica_directa(q_prueba)[:3, 3])\n\n# Inicia la simulación en CoppeliaSim y comprueba que nadie más\n# esté enviando objetivos a las articulaciones. Después habilita:\n# mover_articulaciones(q_prueba)"
+    },
+    {
+      "title": "7 · Desafío: tomar y entregar",
+      "collapsed": false,
+      "source": "# Registra en la escena dos posturas seguras, cada una con seis ángulos:\nq_toma = None\nq_entrega = None\n\n# Programa un ciclo que:\n# 1. Vaya a q_toma.\n# 2. Compruebe DI_00 antes de encender la ventosa.\n# 3. Active DO_00 y espere DI_01 = 1 con tiempo máximo.\n# 4. Vaya a q_entrega.\n# 5. Desactive DO_00 y confirme DI_01 = 0.\n# 6. Si falla una confirmación, informe el error y no siga moviendo.\n\ndef ciclo_toma_y_entrega(q_toma, q_entrega):\n    raise NotImplementedError(\"Completa el ciclo con tus funciones.\")\n\n\n# Ejecuta el ciclo únicamente cuando hayas definido ambas posturas:\n# ciclo_toma_y_entrega(q_toma, q_entrega)"
+    }
+  ]
+}

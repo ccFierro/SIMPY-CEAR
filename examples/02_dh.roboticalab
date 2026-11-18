@@ -1,0 +1,15 @@
+{
+  "format": "RoboticaLabActivity",
+  "version": 2,
+  "name": "02_dh",
+  "teacherInstructions": "Lee los comentarios y ejecuta por celdas o paso a paso. CoppeliaSim se abre por separado.",
+  "cells": [
+    {
+      "source": "\"\"\"DH estándar: RotZ(theta) TransZ(d) TransX(a) RotX(alpha).\n\nModelo didáctico planar de dos eslabones; no corresponde a un UR5.\nÁngulos en radianes y longitudes en la misma unidad.\n\"\"\"\nimport numpy as np\nfrom roboticalab import frame, trayectoria\n\n\ndef dh(theta, d, a, alpha):\n    ct, st = np.cos(theta), np.sin(theta)\n    ca, sa = np.cos(alpha), np.sin(alpha)\n    return np.array([\n        [ct, -st * ca, st * sa, a * ct],\n        [st, ct * ca, -ct * sa, a * st],\n        [0, sa, ca, d],\n        [0, 0, 0, 1],\n    ])\n\n\ntabla_dh = [\n    (np.radians(30), 0, 2, 0),\n    (np.radians(45), 0, 1.5, 0),\n]\nT = np.eye(4)\npuntos = [T[:3, 3].copy()]\nframe(T, \"Base\")\nfor i, fila in enumerate(tabla_dh, start=1):\n    A = dh(*fila)\n    T = T @ A\n    print(f\"A{i}:\\n{A}\\nT0{i}:\\n{T}\")\n    frame(T, f\"Sistema {i}\")\n    puntos.append(T[:3, 3].copy())\ntrayectoria(puntos, \"Cadena cinemática\")\nprint(\"Posición final:\", T[:3, 3])\n"
+    }
+  ],
+  "settings": {
+    "viewMode": "3d",
+    "legacyMatmul": false
+  }
+}

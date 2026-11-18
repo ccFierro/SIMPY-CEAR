@@ -1,0 +1,27 @@
+{
+  "name": "simpy-cear",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Cuaderno Python dedicado a CoppeliaSim para CEAR Inacap.",
+  "author": "CEAR Inacap",
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "test": "node test_storage.js && node test_workspace.js && node test_visual_flow.js && node test_startup_update.js && node scripts/test-python.js",
+    "check": "node --check storage.js && node --check editor.js && node --check execution.js && node --check workspace.js && node --check visual-flow.js && node --check python-reference.js && node --check app.js && node --check coppelia-panel.js && node --check notifications.js && node --check pose-marker.js && node --check python-runtime.js && node --check bootstrap.js && node --check desktop.js && node --check desktop/main.cjs && node --check desktop/preload.cjs && node --check desktop/startup-update.cjs && node --check test_startup_update.js && node --check electron-builder.cjs && node --check scripts/publish-installer.js && node --check scripts/build-windows.js",
+    "build:win": "node scripts/build-windows.js",
+    "installer:from-portable": "electron-builder --config electron-builder.cjs --win nsis --x64 --publish never",
+    "installer:win": "npm run build:win && npm run installer:from-portable",
+    "release:draft": "node scripts/publish-installer.js",
+    "start": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/start-desktop.ps1"
+  },
+  "engines": {
+    "node": ">=22 <25"
+  },
+  "devDependencies": {
+    "electron": "^44.5.1",
+    "electron-builder": "^26.15.3"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
+  }
+}

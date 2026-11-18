@@ -1,0 +1,21 @@
+{
+    "version":  2,
+    "teacherInstructions":  "Lee seis articulaciones del UR3 y construye la cinemática directa. Cambia MODELO a UR5 cuando abras esa escena. No se envían movimientos.",
+    "settings":  {
+                     "legacyMatmul":  false,
+                     "viewMode":  "3d"
+                 },
+    "cells":  [
+                  {
+                      "source":  "# La escena de prueba actual contiene /UR3 en el puerto 23000.\n# Para la otra escena, cambia MODELO a \"UR5\" y ajusta el puerto si corresponde.\nMODELO = \"UR3\"\nPUERTO = 23000\nRUTA_ROBOT = \"/\" + MODELO\nclient, sim = connect_coppelia(host=\"127.0.0.1\", port=PUERTO)\nlecturas = leer_articulaciones(sim, RUTA_ROBOT)\nq = np.array([dato[\"rad\"] for dato in lecturas])\n\nfor i, dato in enumerate(lecturas, start=1):\n    print(f\"J{i}: {dato[\u0027ruta\u0027]} = {dato[\u0027rad\u0027]:.4f} rad\")"
+                  },
+                  {
+                      "source":  "# Cada fila: (a en m, d en m, alpha en rad).\n# Los seis valores theta son los ángulos q leídos en la celda anterior.\ntabla_ur3 = [\n    (0,        0.1519,    np.pi / 2),\n    (-0.24365, 0,         0),\n    (-0.21325, 0,         0),\n    (0,        0.11235,   np.pi / 2),\n    (0,        0.08535,  -np.pi / 2),\n    (0,        0.0819,    0),\n]\n\ntabla_ur5 = [\n    (0,        0.089159,  np.pi / 2),\n    (-0.425,   0,         0),\n    (-0.39225, 0,         0),\n    (0,        0.10915,   np.pi / 2),\n    (0,        0.09465,  -np.pi / 2),\n    (0,        0.0823,    0),\n]\n\n\ndef dh(theta, d, a, alpha):\n    c = np.cos(theta)\n    s = np.sin(theta)\n    ca = np.cos(alpha)\n    sa = np.sin(alpha)\n    return np.array([\n        [c, -s * ca,  s * sa, a * c],\n        [s,  c * ca, -c * sa, a * s],\n        [0,  sa,      ca,     d],\n        [0,  0,       0,      1],\n    ])\n\n\ndef cinematica_directa(q, tabla):\n    if len(q) != 6 or len(tabla) != 6:\n        raise ValueError(\"Se necesitan seis ángulos y seis filas DH.\")\n    T = np.eye(4)\n    for i in range(6):\n        a, d, alpha = tabla[i]\n        T = T @ dh(q[i], d, a, alpha)\n    return T\n\n\n# Esta prueba matemática funciona aunque CoppeliaSim esté cerrado.\nfor nombre, tabla in [(\"UR3\", tabla_ur3), (\"UR5\", tabla_ur5)]:\n    T_cero = cinematica_directa(np.zeros(6), tabla)\n    print(nombre, \"con q = [0, 0, 0, 0, 0, 0]:\", T_cero[:3, 3])"
+                  },
+                  {
+                      "source":  "tabla = {\"UR3\": tabla_ur3, \"UR5\": tabla_ur5}[MODELO]\nT_06 = cinematica_directa(q, tabla)\nprint(\"Matriz T06 calculada:\")\nprint(T_06)\nprint(\"Posición calculada (m):\", T_06[:3, 3])"
+                  }
+              ],
+    "name":  "04_ur3_ur5_lectura_dh",
+    "format":  "RoboticaLabActivity"
+}

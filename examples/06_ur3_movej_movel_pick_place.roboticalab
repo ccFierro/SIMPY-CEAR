@@ -1,0 +1,19 @@
+{
+  "format": "RoboticaLabActivity",
+  "version": 2,
+  "name": "06 - UR3: mover, detectar y tomar",
+  "teacherInstructions": "Practica inicial con la escena UR3 en el puerto 23000 y una pieza dinamica cerca de X=0.350, Y=0.000. Toda la programacion del estudiante esta en una sola celda visible. robot.start_simulation() inicia o reanuda la escena desde Python; robot.stop_simulation() permite detenerla al terminar. p[x,y,z] usa el marco World de Coppelia y conserva la orientacion actual del TCP; p[x,y,z,rx,ry,rz] permite cambiarla. La semilla y la IK se gestionan dentro de la app. DH y cinematica directa se trabajaran en otra actividad: no son necesarios para este movimiento. robot.align_z(1) orienta el eje Z de la ventosa hacia abajo antes del acercamiento; -1 lo orienta hacia arriba. Mantiene la posicion TCP y puede fallar si la postura no es alcanzable.",
+  "settings": {
+    "legacyMatmul": false,
+    "viewMode": "2d",
+    "coppeliaHost": "127.0.0.1",
+    "coppeliaPort": 23000
+  },
+  "cells": [
+    {
+      "title": "1 - Programa del robot",
+      "collapsed": false,
+      "source": "# Conectar e iniciar la escena UR3.\nrobot = conectar_ur(\"/UR3\", port=23000)\nrobot.start_simulation()\n\n# Punto sobre la pieza (coordenadas World, en metros).\narriba = p[0.350, 0.000, 0.455]\n\nif robot.read_input(\"DI_01\") != 1:\n    robot.set_output(\"DO_00\", False)\n    robot.align_z(1)                          # Ventosa hacia abajo\n    robot.movej(arriba)                         # Acercar\n    pieza = robot.lower_until_contact(0.340)    # Bajar hasta tocar\n\n    if pieza is not None:\n        robot.set_output(\"DO_00\", True)         # Activar ventosa\n        robot.wait_input(\"DI_01\", 1)            # Confirmar sujecion\n        robot.movel(arriba)                     # Elevar en linea recta\n        print(\"Pieza tomada:\", pieza[\"ruta\"])\n    else:\n        print(\"No se detecto una pieza.\")\nelse:\n    print(\"La ventosa ya sostiene una pieza.\")"
+    }
+  ]
+}

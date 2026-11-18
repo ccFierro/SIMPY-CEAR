@@ -1,0 +1,15 @@
+{
+  "format": "RoboticaLabActivity",
+  "version": 2,
+  "name": "03_coppelia_generico",
+  "teacherInstructions": "Lee los comentarios y ejecuta por celdas o paso a paso. CoppeliaSim se abre por separado.",
+  "cells": [
+    {
+      "source": "\"\"\"Consulta cualquier escena abierta en CoppeliaSim; no inicia movimientos.\"\"\"\nfrom roboticalab import connect_coppelia\n\nclient, sim = connect_coppelia(host=\"127.0.0.1\", port=23000, timeout=15)\nprint(\"Estado:\", sim.getSimulationState())\narticulaciones = sim.getObjectsInTree(sim.handle_scene, sim.object_joint_type, 0)\nfor articulacion in articulaciones:\n    print(sim.getObjectAlias(articulacion, 1), sim.getJointPosition(articulacion))\n\n# En otra celda, usa las rutas reales de tu escena y su modo de control:\n# articulacion = sim.getObject('/ruta/de/tu/articulacion')\n# sim.startSimulation()\n# sim.setJointTargetPosition(articulacion, 0.2)  # radianes para una revoluta\n# sim.stopSimulation()\n# El objetivo requiere una articulación configurada para control de posición.\n"
+    }
+  ],
+  "settings": {
+    "viewMode": "3d",
+    "legacyMatmul": false
+  }
+}

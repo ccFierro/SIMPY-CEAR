@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="author" content="CEAR Inacap" />
+    <title>SIMPY - CEAR · Cuaderno Python</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="coppelia-notebook">
+    <div class="desktop-titlebar" aria-label="Barra de ventana">
+      <div class="desktop-titlebar-brand"><span class="desktop-titlebar-mark" aria-hidden="true">S</span><strong>SIMPY</strong><span>CEAR</span></div>
+      <div class="desktop-window-controls">
+        <button id="window-minimize" type="button" aria-label="Minimizar ventana" title="Minimizar"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10"/></svg></button>
+        <button id="window-maximize" type="button" aria-label="Maximizar o restaurar ventana" title="Maximizar o restaurar"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="3" width="10" height="10" rx="1"/></svg></button>
+        <button id="window-close" type="button" aria-label="Cerrar ventana" title="Cerrar"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+      </div>
+    </div>
+    <main class="app-shell">
+      <header class="topbar">
+        <nav class="top-actions" aria-label="Herramientas principales">
+          <div class="activity-menu-wrap">
+            <button class="ghost-button activity-menu-trigger" id="activityMenuTrigger" type="button" aria-expanded="false" aria-controls="activityMenu">Actividad <svg class="menu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></button>
+            <div class="activity-menu" id="activityMenu" hidden>
+              <div class="activity-menu-heading">
+                <strong>Actividad</strong>
+                <span id="saveStatus">Sin cambios</span>
+              </div>
+              <div class="activity-menu-section-label">ARCHIVO</div>
+              <button id="saveActivity" type="button">Guardar .roboticalab <kbd>Ctrl+S</kbd></button>
+              <button id="openActivity" type="button">Abrir actividad</button>
+              <button id="exportPython" type="button">Exportar código .py</button>
+              <button id="showRecovery" type="button">Recuperar versión</button>
+              <div class="activity-menu-section-label activity-menu-section-divider">ENTORNO</div>
+              <button id="pythonSettingsButton" type="button">Conexión del simulador</button>
+            </div>
+          </div>
+          <details class="activity-settings" id="activityOptions">
+            <summary id="activityOptionsTrigger" aria-label="Opciones de actividad"><span class="options-label-full">Opciones de actividad</span><span class="options-label-short">Opciones</span></summary>
+            <div class="activity-settings-popover" id="activityOptionsPanel">
+              <div class="activity-options-heading">Opciones de actividad</div>
+              <label>
+                <span>Nombre</span>
+                <input id="activityName" type="text" maxlength="100" value="" placeholder="actividad_sin_titulo" />
+              </label>
+              <label>
+                <span>Animación</span>
+                <select id="animationSpeed">
+                  <option value="slow">Lenta</option>
+                  <option value="normal" selected>Normal</option>
+                  <option value="fast">Rápida</option>
+                </select>
+              </label>
+              <label class="check-setting">
+                <input id="autoSaveEnabled" type="checkbox" checked />
+                <span>Guardado automático</span>
+              </label>
+              <label>
+                <span>Instrucciones</span>
+                <textarea id="teacherInstructions" rows="4" maxlength="20000" placeholder="Indicaciones de la actividad..."></textarea>
+              </label>
+              <button class="danger-menu-action" id="clearLocalData" type="button">Borrar datos locales</button>
+            </div>
+          </details>
+          <button class="ghost-button" id="guideButton" type="button">Guía</button>
+          <span class="top-actions-divider" aria-hidden="true"></span>
+          <button class="ghost-button" id="layoutToggle" type="button" aria-pressed="false">Ampliar gráfico</button>
+          <div class="coppelia-pane-switch" id="coppeliaPaneSwitch" role="group" aria-label="Área de trabajo">
+            <button id="showCoppeliaCode" type="button" aria-pressed="false">Código</button>
+            <button id="showCoppeliaPanel" type="button" aria-pressed="false">Panel</button>
+            <button id="leaveCoppelia" type="button" aria-pressed="true">Gráfico</button>
+          </div>
+          <button class="ghost-button icon-button" id="themeToggle" type="button" title="Cambiar tema" aria-label="Cambiar tema">☾</button>
+        </nav>
+        <section class="scene-tools" id="sceneInventory" aria-label="Escena de Coppelia">
+          <div class="scene-tools-heading"><strong>Escena de Coppelia</strong><span id="sceneInventoryStatus" role="status" aria-live="polite">Buscando escena…</span></div>
+          <div class="scene-tools-grid">
+            <button id="poseMarkerOpen" type="button">Marco 3D</button>
+            <button id="sceneInventoryToggle" type="button" aria-haspopup="dialog" aria-controls="sceneInventoryDialog">Señales y equipos</button>
+          </div>
+          <section class="tcp-live" aria-label="Pose World del sensor TCP">
+            <div class="tcp-live-heading">
+              <strong>TCP del sensor · World</strong>
+              <select id="tcpSensorSelect" aria-label="Sensor TCP observado" disabled><option value="">Buscando sensor…</option></select>
+              <span id="tcpLiveStatus" role="status">En espera</span>
+            </div>
+            <div class="tcp-live-groups">
+              <div class="tcp-live-group"><span class="tcp-live-unit">Posición · m</span><div class="tcp-live-values">
+                <div class="tcp-axis-x"><span>X</span><output id="tcpLiveX">—</output></div>
+                <div class="tcp-axis-y"><span>Y</span><output id="tcpLiveY">—</output></div>
+                <div class="tcp-axis-z"><span>Z</span><output id="tcpLiveZ">—</output></div>
+              </div></div>
+              <div class="tcp-live-group"><span class="tcp-live-unit">Orientación · rad</span><div class="tcp-live-values">
+                <div class="tcp-axis-x"><span>rx</span><output id="tcpLiveRx">—</output></div>
+                <div class="tcp-axis-y"><span>ry</span><output id="tcpLiveRy">—</output></div>
+                <div class="tcp-axis-z"><span>rz</span><output id="tcpLiveRz">—</output></div>
+              </div></div>
+            </div>
+          </section>
+        </section>
+        <div class="header-status visually-hidden">
+          <span id="saveIndicator" role="status">Sin cambios</span>
+          <span class="runtime-status ready" id="runtimeStatus"><span class="status-dot"></span> Listo</span>
+        </div>
+      </header>
+
+      <section class="workspace">
+        <aside class="editor-panel panel" id="editorPanel">
+          <div class="panel-heading">
+            <h2 id="activityDisplayName">actividad_sin_titulo</h2>
+          </div>
+
+          <div class="notebook-toolbar">
+            <button class="run-button" id="runCode" type="button"><span id="runLabel">Ejecutar todo</span></button>
+            <div>
+              <button id="pauseExecution" type="button" hidden>Pausar</button>
+              <button id="stopExecution" type="button" hidden>Detener</button>
+              <button id="findCode" type="button" title="Buscar en el cuaderno (Ctrl+F)">Buscar</button>
+              <button id="resetNotebook" type="button" title="Reinicia el proceso Python y limpia sus variables">Reiniciar Python</button>
+            </div>
+          </div>
+          <div id="runtimeNotice" class="runtime-notice" role="status" hidden></div>
+          <div id="pythonStepBar" class="python-step-bar" hidden>
+            <span id="pythonStepLocation"></span>
+            <button id="nextPythonStep" type="button">Siguiente línea</button>
+          </div>
+          <div class="search-bar" id="codeSearch" hidden>
+            <input id="codeSearchInput" type="search" aria-label="Buscar en todas las celdas" placeholder="Buscar en el cuaderno…" />
+            <span id="searchCount" role="status"></span>
+            <button id="searchPrevious" type="button" aria-label="Coincidencia anterior">↑</button>
+            <button id="searchNext" type="button" aria-label="Coincidencia siguiente">↓</button>
+            <button id="closeSearch" type="button" aria-label="Cerrar búsqueda">×</button>
+          </div>
+
+          <div class="notebook" id="notebook" aria-label="Cuaderno de código"></div>
+          <div class="editor-cell-actions"><button id="addCell" type="button">Nueva celda</button></div>
+
+
+        </aside>
+        <div class="panel-divider" id="panelDivider" role="separator" tabindex="0" aria-label="Ancho del cuaderno" aria-orientation="vertical" aria-valuemin="28" aria-valuemax="65" aria-valuenow="42"></div>
+        <section class="visual-panel panel">
+          <div class="panel-heading visual-heading">
+            <div>
+              <span class="eyebrow">VISUALIZACIÓN</span>
+              <h2 id="viewTitle">Plano cartesiano</h2>
+            </div>
+            <div class="visual-actions">
+              <div class="mode-switch" aria-label="Vista de trabajo">
+                <button class="mode-button active" id="mode2d" type="button">2D</button>
+                <button class="mode-button" id="mode3d" type="button">3D</button>
+                <button class="mode-button" id="modeCoppelia" type="button">Coppelia</button>
+              </div>
+              <button class="ghost-button" id="togglePointLabels" type="button" aria-pressed="true" title="Ocultar etiquetas de puntos">Etiquetas</button>
+              <button class="ghost-button" id="resetView" type="button" title="Restablecer vista">Vista</button>
+              <button class="ghost-button" id="exportEvidence" type="button" title="Guardar gráfico, código y salida de la celda seleccionada como PNG">Evidencia</button>
+            </div>
+          </div>
+          <div class="legend" id="legend" aria-label="Elementos visibles"></div>
+
+          <div class="canvas-wrap" id="canvasWrap">
+            <canvas id="plotCanvas"></canvas>
+            <div class="pan-hint" aria-hidden="true">Arrastra para mover · rueda para acercar</div>
+            <div class="view-presets" aria-label="Vistas de cámara">
+              <button class="view-3d-control active" id="viewIso" type="button">Iso</button>
+              <button class="view-3d-control" id="viewTop" type="button">Superior</button>
+              <button class="view-3d-control" id="viewFront" type="button">Frontal</button>
+              <button class="view-3d-control" id="viewSide" type="button">Lateral</button>
+              <button id="centerContent" type="button">Centrar</button>
+            </div>
+            <div class="plane-controls" aria-label="Planos de referencia">
+              <button class="active" data-plane="xy" type="button">XY</button>
+              <button data-plane="xz" type="button">XZ</button>
+              <button data-plane="yz" type="button">YZ</button>
+            </div>
+            <div class="axis-badge axis-x">X</div>
+            <div class="axis-badge axis-y">Y</div>
+            <div class="camera-tools" aria-label="Herramienta de cámara">
+              <button class="active" id="orbitTool" type="button">Orbitar</button>
+              <button id="panTool" type="button">Mover</button>
+            </div>
+            <div class="zoom-controls">
+              <button id="zoomIn" type="button" aria-label="Acercar">+</button>
+              <button id="zoomOut" type="button" aria-label="Alejar">−</button>
+            </div>
+            <div class="empty-state" id="emptyState">
+              <div class="empty-icon">⌖</div>
+              <p>Ejecuta una celda con plot(), vector() o frame() para ver el resultado aquí.</p>
+            </div>
+            <div class="coordinate-inspector" id="coordinateInspector" role="status"></div>
+            <div class="source-link-status" id="sourceLinkStatus" role="status" aria-live="polite"></div>
+          </div>
+
+          <div class="manual-panel" id="manualPanel" aria-label="Panel de CoppeliaSim y controles Python" hidden>
+            <section class="program-panel" aria-labelledby="programPanelTitle">
+              <div class="program-panel-heading"><h3 id="programPanelTitle">Panel del programa</h3></div>
+              <div class="program-surface">
+                <div id="programControls" class="program-controls" aria-live="polite"></div>
+                <p id="programEmpty" class="program-empty">Los controles creados desde Python aparecerán aquí.</p>
+              </div>
+              <p id="programNotice" class="program-notice" role="status" aria-live="polite"></p>
+            </section>
+            <details class="manual-details" id="manualControls">
+              <summary>Mandos manuales de CoppeliaSim</summary>
+            <div class="manual-intro">
+              <div><span class="eyebrow">CONTROL MANUAL</span><h3>Mandos del robot</h3><p>El robot se observa en la ventana de CoppeliaSim. Un clic envía un paso pequeño; el cuaderno Python sigue disponible.</p></div>
+              <button id="manualSettings" type="button">Conexión</button>
+            </div>
+            <p class="manual-status" id="manualStatus" role="status" aria-live="polite">Abre CoppeliaSim y consulta la escena para habilitar los mandos.</p>
+            <div class="manual-sim-actions">
+              <button id="manualRefresh" type="button">Consultar escena</button>
+              <button id="manualStart" type="button" disabled>Iniciar simulación</button>
+              <button id="manualStop" type="button" disabled>Detener simulación</button>
+              <span id="manualSimState">Sin conexión</span>
+            </div>
+            <div class="manual-grid">
+              <section class="manual-card" aria-labelledby="jointControlTitle">
+                <div class="manual-card-heading"><span class="manual-index">01</span><div><h4 id="jointControlTitle">Articulaciones</h4><p>Selecciona una articulación y mueve su objetivo.</p></div></div>
+                <label>Ruta del robot <span>opcional; vacía consulta toda la escena</span><input id="manualRobotRoot" placeholder="/Robot" spellcheck="false" /></label>
+                <label>Articulación <select id="manualJoint" disabled><option value="">Consulta la escena</option></select></label>
+                <div class="manual-readout" id="manualJointReadout">Posición: —</div>
+                <label>Paso <select id="manualJointStep"><option value="1">1°</option><option value="5" selected>5°</option><option value="10">10°</option></select></label>
+                <div class="manual-jog-row"><button class="manual-jog" data-manual-joint="-1" type="button" aria-label="Articulación: paso negativo" disabled>← <span>−</span></button><span>JOG</span><button class="manual-jog" data-manual-joint="1" type="button" aria-label="Articulación: paso positivo" disabled><span>+</span> →</button></div>
+                <p class="manual-note">La articulación lineal usa pasos en mm. Se respetan los límites configurados en la escena.</p>
+              </section>
+              <section class="manual-card" aria-labelledby="cartesianControlTitle">
+                <div class="manual-card-heading"><span class="manual-index">02</span><div><h4 id="cartesianControlTitle">Objetivo cartesiano</h4><p>Flechas XYZ y giros del objetivo IK.</p></div></div>
+                <label>Ruta del dummy objetivo <input id="manualTargetPath" placeholder="/Robot/target" spellcheck="false" /></label>
+                <label>Referencia <select id="manualFrame"><option value="world">Mundo</option><option value="tool">Objetivo</option></select></label>
+                <div class="manual-step-pair"><label>Paso lineal <select id="manualLinearStep"><option value="1">1 mm</option><option value="5" selected>5 mm</option><option value="10">10 mm</option><option value="25">25 mm</option></select></label><label>Paso angular <select id="manualAngularStep"><option value="1">1°</option><option value="5" selected>5°</option><option value="10">10°</option></select></label></div>
+                <div class="manual-axis-grid" aria-label="Flechas de movimiento cartesiano">
+                  <span class="manual-axis-name manual-axis-x">X</span><button class="manual-jog" data-manual-axis="x" data-direction="-1" type="button" disabled>← X−</button><button class="manual-jog" data-manual-axis="x" data-direction="1" type="button" disabled>X+ →</button>
+                  <span class="manual-axis-name manual-axis-y">Y</span><button class="manual-jog" data-manual-axis="y" data-direction="-1" type="button" disabled>↓ Y−</button><button class="manual-jog" data-manual-axis="y" data-direction="1" type="button" disabled>Y+ ↑</button>
+                  <span class="manual-axis-name manual-axis-z">Z</span><button class="manual-jog" data-manual-axis="z" data-direction="-1" type="button" disabled>Z−</button><button class="manual-jog" data-manual-axis="z" data-direction="1" type="button" disabled>Z+</button>
+                  <span class="manual-axis-name">RX</span><button class="manual-jog" data-manual-axis="rx" data-direction="-1" type="button" disabled>↺ RX−</button><button class="manual-jog" data-manual-axis="rx" data-direction="1" type="button" disabled>RX+ ↻</button>
+                  <span class="manual-axis-name">RY</span><button class="manual-jog" data-manual-axis="ry" data-direction="-1" type="button" disabled>↺ RY−</button><button class="manual-jog" data-manual-axis="ry" data-direction="1" type="button" disabled>RY+ ↻</button>
+                  <span class="manual-axis-name">RZ</span><button class="manual-jog" data-manual-axis="rz" data-direction="-1" type="button" disabled>↺ RZ−</button><button class="manual-jog" data-manual-axis="rz" data-direction="1" type="button" disabled>RZ+ ↻</button>
+                </div>
+                <div class="manual-readout" id="manualTargetReadout">Objetivo IK: sin configurar</div>
+                <p class="manual-note">Mover el dummy solo mueve el cobot si la escena tiene un controlador IK conectado a ese objetivo.</p>
+              </section>
+            </div>
+            </details>
+          </div>
+
+          <div class="results-strip" id="resultsPanel">
+            <div class="results-heading">
+              <div role="tablist" aria-label="Resultados">
+                <button id="tabVariables" role="tab" aria-selected="true" aria-controls="variablesPanel" data-result-tab="variablesPanel">Variables</button>
+                <button id="tabTransform" role="tab" aria-selected="false" aria-controls="transformPanel" tabindex="-1" data-result-tab="transformPanel">Transformación</button>
+                <button id="tabOutput" role="tab" aria-selected="false" aria-controls="outputPanel" tabindex="-1" data-result-tab="outputPanel">Salida</button>
+                <button id="tabDiagnostics" role="tab" aria-selected="false" aria-controls="diagnosticsPanel" tabindex="-1" data-result-tab="diagnosticsPanel">Diagnósticos <span id="diagnosticCount">0</span></button>
+                <button id="tabVisualization" role="tab" aria-selected="false" aria-controls="visualizationPanel" tabindex="-1" data-result-tab="visualizationPanel">Visualización</button>
+              </div>
+              <button id="toggleResults" type="button" aria-expanded="false" aria-controls="resultsBody">Mostrar</button>
+            </div>
+            <div id="resultsBody" hidden>
+            <div class="variables-area" id="variablesPanel" role="tabpanel" aria-labelledby="tabVariables">
+              <div class="result-cards" id="resultCards"></div>
+              <div class="variable-inspector hidden" id="variableInspector"></div>
+            </div>
+            <div class="transform-panel" id="transformPanel" role="tabpanel" aria-labelledby="tabTransform" hidden>
+              <p id="transformHint">Ejecuta una celda que defina una matriz homogénea y un punto.</p>
+              <div id="transformControls" class="transform-controls" hidden>
+                <label>Matriz <select id="transformMatrix" aria-label="Matriz de transformación"></select></label>
+                <label>Punto <select id="transformPoint" aria-label="Punto inicial"></select></label>
+                <button id="showTransformOnGraph" type="button" aria-pressed="false">Mostrar en gráfico</button>
+              </div>
+              <fieldset id="localFrameControls" class="local-frame-controls" hidden>
+                <legend>Sistemas locales del punto seleccionado</legend>
+                <label><input id="showLocalFrames" type="checkbox" /> Mostrar ejes locales</label>
+                <label><input id="compareLocalFrames" type="checkbox" /> Comparar inicial y final</label>
+                <label>Longitud de ejes <input id="localFrameScale" type="number" min="0.1" max="20" step="0.1" value="1" /> <span>unidades</span></label>
+                <span id="frameStateKey" class="frame-state-key" aria-hidden="true" hidden><i></i> Inicial tenue · <b></b> Final sólido</span>
+                <p id="localFrameHint">Inicial: ejes del mundo en P. Final: ejes orientados por la rotación de T en T @ P.</p>
+              </fieldset>
+              <div id="transformCalculation" class="transform-calculation"></div>
+              <label id="transformTimeline" class="transform-timeline" hidden>Recorrido lineal ilustrativo <input id="transformProgress" type="range" min="0" max="100" value="100" /><output id="transformProgressValue">100 %</output></label>
+            </div>
+            <div class="console-box" id="outputPanel" role="tabpanel" aria-labelledby="tabOutput" hidden>
+              <div id="consoleOutput">Listo para ejecutar.</div>
+            </div>
+            <div id="diagnosticsPanel" role="tabpanel" aria-labelledby="tabDiagnostics" hidden><p class="muted">Sin diagnósticos.</p></div>
+            <div id="visualizationPanel" class="visualization-panel" role="tabpanel" aria-labelledby="tabVisualization" hidden>
+              <label><input id="showGrid" type="checkbox" checked /> Rejilla</label>
+              <label><input id="showAxes" type="checkbox" checked /> Ejes y números</label>
+              <label><input id="showLabels" type="checkbox" checked /> Etiquetas de puntos</label>
+              <label><input id="showLegend" type="checkbox" checked /> Leyenda</label>
+              <p>Para ocultar un dibujo concreto, pulsa su nombre en la leyenda.</p>
+            </div>
+            </div>
+          </div>
+        </section>
+      </section>
+
+    </main>
+
+    <input id="activityFileInput" type="file" accept=".roboticalab,application/json" hidden />
+    <dialog id="sceneInventoryDialog" class="python-dialog scene-inventory-dialog" aria-labelledby="sceneInventoryTitle">
+      <div class="scene-dialog-heading">
+        <div><span class="eyebrow">ESCENA DE COPPELIA</span><h2 id="sceneInventoryTitle">Señales y equipos</h2></div>
+        <form method="dialog"><button class="dialog-close" aria-label="Cerrar señales y equipos">×</button></form>
+      </div>
+      <div id="sceneInventoryItems" class="scene-inventory-items"><p class="scene-inventory-loading">Buscando elementos de la escena…</p></div>
+    </dialog>
+    <dialog id="poseMarkerDialog" class="python-dialog pose-marker-dialog" aria-labelledby="poseMarkerTitle">
+      <div class="pose-dialog-brand">
+        <span class="pose-brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M16 2 29 9v14L16 30 3 23V9L16 2Z M3 9l13 7 13-7 M16 16v14"/></svg></span>
+        <span><strong>SIMPY - CEAR</strong><small>CoppeliaSim</small></span>
+        <form method="dialog"><button class="dialog-close" aria-label="Cerrar marcador">×</button></form>
+      </div>
+      <div class="pose-dialog-content">
+      <h2 id="poseMarkerTitle">Marco de coordenadas</h2>
+      <p class="pose-dialog-lead">Ajusta el marcador en CoppeliaSim. Copia su pose o mueve el TCP hasta él después de comprobar la IK.</p>
+      <div class="dialog-actions pose-marker-actions">
+        <button id="poseMarkerCreate" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16M4 12h16"/></svg>Crear marcador</button>
+        <button id="poseMarkerRead" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 1v6m0 10v6M1 12h6m10 0h6"/></svg>Leer desde escena</button>
+        <button id="poseMarkerMoveTcp" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 1v5m0 12v5M1 12h5m12 0h5"/></svg>Mover TCP al marcador</button>
+      </div>
+      <div class="pose-marker-steps">
+        <label>Paso lineal (mm) <input id="poseMarkerLinearStep" type="number" min="1" max="50" value="10" /></label>
+        <label>Paso angular (°) <input id="poseMarkerAngularStep" type="number" min="1" max="90" value="5" /></label>
+        <label>Referencia <select id="poseMarkerFrame"><option value="tool" selected>Local del marcador</option><option value="world">World</option></select></label>
+      </div>
+      <section class="pose-controller" aria-label="Mando del marco de coordenadas">
+        <div class="pose-controller-heading"><strong>Desplazar</strong><span>X rojo · Y verde · Z azul</span></div>
+        <div class="pose-controller-translate">
+          <svg class="pose-xy-disc" viewBox="0 0 220 220" role="group" aria-label="Disco de desplazamiento X e Y">
+            <circle class="pose-disc-back" cx="110" cy="110" r="97" />
+            <g class="pose-control pose-axis-y" role="button" tabindex="0" aria-label="Desplazar en Y positivo" data-marker-axis="y" data-marker-direction="1"><path class="pose-control-face" d="M45 45 A92 92 0 0 1 175 45 L130 90 A28 28 0 0 0 90 90 Z"/><path class="pose-control-arrow" d="M110 61 V38 M102 46 L110 38 L118 46"/><text x="110" y="80">+Y</text></g>
+            <g class="pose-control pose-axis-x" role="button" tabindex="0" aria-label="Desplazar en X positivo" data-marker-axis="x" data-marker-direction="1"><path class="pose-control-face" d="M175 45 A92 92 0 0 1 175 175 L130 130 A28 28 0 0 0 130 90 Z"/><path class="pose-control-arrow" d="M158 105 H181 M173 97 L181 105 L173 113"/><text x="164" y="131">+X</text></g>
+            <g class="pose-control pose-axis-y" role="button" tabindex="0" aria-label="Desplazar en Y negativo" data-marker-axis="y" data-marker-direction="-1"><path class="pose-control-face" d="M175 175 A92 92 0 0 1 45 175 L90 130 A28 28 0 0 0 130 130 Z"/><path class="pose-control-arrow" d="M110 158 V181 M102 173 L110 181 L118 173"/><text x="110" y="149">−Y</text></g>
+            <g class="pose-control pose-axis-x" role="button" tabindex="0" aria-label="Desplazar en X negativo" data-marker-axis="x" data-marker-direction="-1"><path class="pose-control-face" d="M45 175 A92 92 0 0 1 45 45 L90 90 A28 28 0 0 0 90 130 Z"/><path class="pose-control-arrow" d="M62 105 H39 M47 97 L39 105 L47 113"/><text x="56" y="131">−X</text></g>
+            <circle class="pose-disc-hub" cx="110" cy="110" r="25" />
+            <path class="pose-hub-mark" d="M103 117 V100 M103 117 H120 M103 100 L100 104 M120 117 L116 114" />
+            <circle class="pose-hub-origin" cx="103" cy="117" r="2" />
+          </svg>
+          <div class="pose-z-rail" role="group" aria-label="Desplazamiento vertical Z">
+            <svg viewBox="0 0 76 220" role="group" aria-label="Control vertical Z"><rect class="pose-z-track" x="13" y="15" width="50" height="190" rx="25"/><g class="pose-control pose-axis-z" role="button" tabindex="0" aria-label="Desplazar en Z positivo" data-marker-axis="z" data-marker-direction="1"><path class="pose-control-face" d="M38 17 A23 23 0 0 1 61 40 V109 H15 V40 A23 23 0 0 1 38 17 Z"/><path class="pose-control-arrow" d="M38 65 V41 M30 49 L38 41 L46 49"/><text x="38" y="87">+Z</text></g><g class="pose-control pose-axis-z" role="button" tabindex="0" aria-label="Desplazar en Z negativo" data-marker-axis="z" data-marker-direction="-1"><path class="pose-control-face" d="M15 111 H61 V180 A23 23 0 0 1 15 180 Z"/><path class="pose-control-arrow" d="M38 155 V179 M30 171 L38 179 L46 171"/><text x="38" y="140">−Z</text></g></svg>
+          </div>
+        </div>
+        <div class="pose-controller-heading"><strong>Girar</strong><span>Arcos en ambos sentidos</span></div>
+        <div class="pose-rotation-dials" id="poseRotationDials" role="group" aria-label="Girar alrededor de X, Y o Z"></div>
+      </section>
+      <h3>Posición World · metros</h3>
+      <div class="pose-marker-grid">
+        <label class="pose-axis-field pose-axis-x"><span>X</span><input id="poseMarkerX" type="number" step="0.001" value="0" /></label>
+        <label class="pose-axis-field pose-axis-y"><span>Y</span><input id="poseMarkerY" type="number" step="0.001" value="0" /></label>
+        <label class="pose-axis-field pose-axis-z"><span>Z</span><input id="poseMarkerZ" type="number" step="0.001" value="0.35" /></label>
+      </div>
+      <h3>Orientación · vector de rotación en radianes</h3>
+      <div class="pose-marker-grid">
+        <label class="pose-axis-field pose-axis-x"><span>rx</span><input id="poseMarkerRx" type="number" step="0.01" value="0" /></label>
+        <label class="pose-axis-field pose-axis-y"><span>ry</span><input id="poseMarkerRy" type="number" step="0.01" value="0" /></label>
+        <label class="pose-axis-field pose-axis-z"><span>rz</span><input id="poseMarkerRz" type="number" step="0.01" value="0" /></label>
+      </div>
+      <button id="poseMarkerApply" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"/><path d="M12 2v5m0 10v5M2 12h5m10 0h5"/></svg>Aplicar pose al marcador</button>
+      <code id="poseMarkerCode" class="pose-marker-code">p[0, 0, 0.35, 0, 0, 0]</code>
+      <div class="dialog-actions pose-marker-secondary"><button id="poseMarkerCopy" type="button">Copiar pose</button><button id="poseMarkerInsert" type="button">Insertar en celda</button><button id="poseMarkerDelete" type="button">Eliminar marcador</button></div>
+      <p id="poseMarkerStatus" role="status" aria-live="polite">Crea un marcador para comenzar.</p>
+      </div>
+    </dialog>
+    <dialog id="pythonSettings" class="python-dialog">
+      <form method="dialog"><button class="dialog-close" aria-label="Cerrar configuración">×</button></form>
+      <h2>Python y CoppeliaSim</h2>
+      <p id="pythonEnvironment">Conectando con Python…</p>
+      <p class="muted">CoppeliaSim Edu 4.10 · conexión independiente del robot y de la escena.</p>
+      <label>Dirección <input id="coppeliaHost" value="127.0.0.1" spellcheck="false" /></label>
+      <label>Puerto ZeroMQ <input id="coppeliaPort" type="number" min="1" max="65535" value="23000" /></label>
+      <label>Carpeta local del cliente ZeroMQ (opcional)<input id="coppeliaClientPath" placeholder="…/programming/zmqRemoteApi/clients/python" spellcheck="false" /></label>
+      <p class="muted">Las bibliotecas de pip ya están en el entorno. Esta ruta añade módulos locales a Python. Reinicia Python después de cambiarla si ya importaste el cliente.</p>
+      <div class="dialog-actions">
+        <button id="probeCoppelia" type="button">Comprobar conexión</button>
+        <button id="insertCoppelia" type="button">Insertar código de conexión</button>
+      </div>
+      <p id="coppeliaStatus" role="status">Sin comprobar. Interrumpir Python no detiene automáticamente la simulación.</p>
+      <label class="legacy-setting"><input id="legacyMatmul" type="checkbox" /> Compatibilidad: @ entre listas de actividades antiguas</label>
+    </dialog>
+    <dialog id="pythonInputDialog" class="python-dialog">
+      <form id="pythonInputForm">
+        <h2>Entrada de Python</h2>
+        <label id="pythonInputPrompt" for="pythonInputValue"></label>
+        <input id="pythonInputValue" autocomplete="off" />
+        <div class="dialog-actions"><button type="submit">Enviar</button><button id="cancelPythonInput" type="button">Interrumpir</button></div>
+      </form>
+    </dialog>
+    <div class="recovery-backdrop" id="recoveryBackdrop" hidden>
+      <section class="recovery-dialog" role="dialog" aria-modal="true" aria-labelledby="recoveryTitle">
+        <div class="recovery-heading">
+          <div>
+            <span class="eyebrow">RECUPERACIÓN</span>
+            <h2 id="recoveryTitle">Versiones recientes</h2>
+          </div>
+          <button id="closeRecovery" type="button" aria-label="Cerrar">×</button>
+        </div>
+        <div class="recovery-list" id="recoveryList"></div>
+      </section>
+    </div>
+
+    <button class="reference-trigger" id="referenceTrigger" type="button" aria-expanded="false" aria-controls="pythonReference">
+      <span>?</span> Guía Python
+    </button>
+
+    <section class="reference-panel" id="pythonReference" role="dialog" aria-modal="true" aria-labelledby="referenceTitle" aria-hidden="true" tabindex="-1">
+      <div class="reference-header">
+        <div>
+          <span class="eyebrow">REFERENCIA</span>
+          <h2 id="referenceTitle">Python y CoppeliaSim</h2>
+        </div>
+        <button class="reference-close" id="referenceClose" type="button" aria-label="Cerrar guía">×</button>
+      </div>
+      <label class="reference-search">
+        <span aria-hidden="true">⌕</span>
+        <input id="referenceSearch" type="search" placeholder="Buscar: matriz, vector, print..." autocomplete="off" />
+      </label>
+      <div class="reference-workspace">
+        <nav class="reference-list" id="referenceList" aria-label="Temas de la guía"></nav>
+        <article class="reference-detail" id="referenceDetail" tabindex="0" aria-live="polite"></article>
+      </div>
+      <div class="reference-footer" id="referenceCount" aria-live="polite"></div>
+    </section>
+    <div class="reference-backdrop" id="referenceBackdrop"></div>
+
+
+    <script src="storage.js"></script>
+    <script src="editor.js"></script>
+    <script src="execution.js"></script>
+    <script src="workspace.js"></script>
+    <script src="visual-flow.js"></script>
+    <script src="python-runtime.js"></script>
+    <script src="bootstrap.js"></script>
+  </body>
+</html>

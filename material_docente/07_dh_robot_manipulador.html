@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="author" content="CEAR Inacap">
+<title>Del robot al modelo DH · CEAR RoboLab</title>
+<style>
+:root{color-scheme:light;font-family:Inter,"Segoe UI",Arial,sans-serif;--ink:#173344;--muted:#4c6573;--accent:#006f83;--line:#c7d8df;--wash:#eef5f7}
+*{box-sizing:border-box}html,body{margin:0;background:#edf3f5;color:var(--ink)}
+main{width:min(100% - 24px,1020px);margin:22px auto;padding:30px 38px 42px;background:#fff;box-shadow:0 8px 28px #153c5518}
+.brand{font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
+h1{margin:8px 0 7px;font-size:clamp(28px,4vw,42px);line-height:1.12}h2{margin:0 0 10px;font-size:21px}h3{margin:0 0 6px;font-size:15px}p{margin:0 0 10px;line-height:1.48}
+.lead{max-width:800px;color:var(--muted);font-size:17px}.meta{display:flex;flex-wrap:wrap;gap:8px;margin:17px 0 23px}.meta span{padding:6px 9px;border:1px solid var(--line);border-radius:6px;background:var(--wash);font-size:12px;font-weight:700}
+.section{margin-top:18px;padding:18px 20px;border:1px solid var(--line);border-left:4px solid var(--accent);break-inside:avoid}.step{color:var(--accent);font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.card{padding:13px 15px;border:1px solid var(--line);border-radius:8px;background:#fafcfd}.card p:last-child{margin-bottom:0}
+.formula{padding:12px 14px;border:1px solid var(--line);border-radius:7px;background:var(--wash);font:14px/1.5 Consolas,monospace;overflow:auto;white-space:pre}
+.diagram{display:block;width:100%;max-width:480px;height:auto;margin:8px auto 0;border:1px solid var(--line);border-radius:7px;background:#fbfdfd}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:8px 7px;border:1px solid var(--line);text-align:center}th{background:var(--wash)}.blank{height:30px}
+ol{margin:0;padding-left:21px;line-height:1.48}li+li{margin-top:7px}
+pre,code{font-family:Consolas,"Cascadia Code",monospace}pre{margin:8px 0 0;padding:13px 14px;border:1px solid var(--line);border-radius:7px;background:#f5f8fa;overflow-x:auto;font-size:12px;line-height:1.48}code{font-size:.94em}
+.callout{margin:10px 0 0;padding:10px 12px;border-left:3px solid var(--accent);background:var(--wash);font-size:13px}.callout strong{color:#005366}
+.checklist{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 16px;margin-top:12px}.checklist span{padding:8px 10px;border:1px solid var(--line);font-size:13px}
+.sources{margin-top:22px;padding-top:12px;border-top:1px solid var(--line);color:var(--muted);font-size:11px}.sources a{color:#005d74}.print-button{float:right;padding:8px 11px;border:1px solid var(--accent);border-radius:7px;background:var(--accent);color:#fff;font:700 12px inherit;cursor:pointer}
+@media(max-width:720px){main{width:100%;margin:0;padding:20px 16px;box-shadow:none}.cols,.checklist{grid-template-columns:1fr}.section{padding:15px}.print-button{float:none;margin:0 0 14px}}
+@media print{@page{size:A4;margin:12mm 14mm}html,body{background:#fff;print-color-adjust:exact;-webkit-print-color-adjust:exact}main{width:auto;margin:0;padding:0;box-shadow:none}.section{break-inside:avoid;box-shadow:none}.print-button{display:none}.sources a{color:inherit;text-decoration:none}}
+</style>
+</head>
+<body>
+<main>
+<button class="print-button" type="button" onclick="window.print()">Imprimir / guardar PDF</button>
+<div class="brand">CEAR RoboLab · material docente</div>
+<h1>Del robot al modelo DH</h1>
+<p class="lead">Asigna referencias, construye las matrices, comprueba la posición de la herramienta y programa una ruta de articulaciones.</p>
+<div class="meta"><span>1 · Brazo plano</span><span>2 · Tabla DH del UR5</span><span>3 · Python</span><span>4 · Comprobación en CoppeliaSim</span></div>
+
+<section class="section"><div class="step">01 · Pregunta inicial</div><h2>¿Qué debe predecir el modelo?</h2>
+ <p>Si conocemos los ángulos de las articulaciones <code>q</code>, queremos calcular la posición y orientación de la herramienta respecto de la base: <code>T_base_herramienta(q)</code>.</p>
+ <div class="cols"><div class="card"><h3>En el robot</h3><p>La escena entrega las posiciones articulares y la pose real de la herramienta.</p></div><div class="card"><h3>En Python</h3><p>El estudiante construye una cadena de transformaciones y compara su predicción con la escena.</p></div></div>
+ <p class="callout"><strong>Acuerdo previo de la clase:</strong> usar DH estándar, metros, radianes y una configuración cero definida. La base y la herramienta deben estar identificadas en la escena entregada.</p>
+</section>
+
+<section class="section"><div class="step">02 · Una articulación</div><h2>Cuatro parámetros entre referencias consecutivas</h2>
+ <div class="cols"><div class="card"><p><strong>θ<sub>i</sub></strong>: giro alrededor de <code>z</code> anterior. En una articulación rotativa cambia con <code>q[i]</code>.</p><p><strong>d<sub>i</sub></strong>: avance sobre ese mismo eje <code>z</code>.</p></div><div class="card"><p><strong>a<sub>i</sub></strong>: distancia entre ejes <code>z</code> medida sobre el eje <code>x</code> nuevo.</p><p><strong>α<sub>i</sub></strong>: giro entre esos ejes <code>z</code> alrededor de <code>x</code> nuevo.</p></div></div>
+ <div class="formula">Aᵢ = Rz(θᵢ) · Tz(dᵢ) · Tx(aᵢ) · Rx(αᵢ)</div>
+ <p class="callout">Para la articulación <code>i</code>, el eje <code>z</code> de la referencia anterior coincide con su eje físico de movimiento. Las superficies del modelo 3D ayudan a orientarse, pero los ejes y la configuración cero determinan la tabla.</p>
+</section>
+
+<section class="section"><div class="step">03 · Ensayo pequeño</div><h2>Un brazo plano de dos articulaciones</h2>
+ <div class="cols"><div><p>Supón dos eslabones de longitudes <code>L1 = 2</code> y <code>L2 = 1</code>. Todos los ejes de giro son paralelos: <code>d = 0</code> y <code>α = 0</code>. Las dos filas DH quedan:</p>
+  <table><thead><tr><th>i</th><th>θᵢ</th><th>dᵢ</th><th>aᵢ</th><th>αᵢ</th></tr></thead><tbody><tr><td>1</td><td>q1</td><td>0</td><td>L1</td><td>0</td></tr><tr><td>2</td><td>q2</td><td>0</td><td>L2</td><td>0</td></tr></tbody></table>
+  <p class="callout">Predicción de control: con <code>q1 = 0°</code> y <code>q2 = 90°</code>, la punta queda en <code>(2, 1)</code>.</p></div>
+  <svg class="diagram" viewBox="0 0 360 230" role="img" aria-label="Brazo plano de dos eslabones con ejes de giro en base y codo"><path d="M49 177H325M49 177V20" stroke="#afc8d0" stroke-width="2"/><path d="M49 177H230V66" fill="none" stroke="#006f83" stroke-width="8" stroke-linecap="round"/><g fill="#fff" stroke="#173344" stroke-width="3"><circle cx="49" cy="177" r="9"/><circle cx="230" cy="177" r="9"/><circle cx="230" cy="66" r="9"/></g><g fill="#173344" font-size="15" font-family="sans-serif"><text x="39" y="203">base</text><text x="206" y="204">codo</text><text x="240" y="66">punta</text><text x="116" y="165">L1</text><text x="240" y="124">L2</text><text x="25" y="31">y</text><text x="318" y="195">x</text></g></svg></div>
+</section>
+
+<section class="section"><div class="step">04 · Código base</div><h2>Implementa la matriz DH estándar</h2>
+ <pre><code>def A_dh(theta, d, a, alpha):
+    ct, st = np.cos(theta), np.sin(theta)
+    ca, sa = np.cos(alpha), np.sin(alpha)
+    return np.array([
+        [ct, -st*ca,  st*sa, a*ct],
+        [st,  ct*ca, -ct*sa, a*st],
+        [ 0,     sa,     ca,    d],
+        [ 0,      0,      0,    1]
+    ])
+
+L1, L2 = 2.0, 1.0
+q1, q2 = np.radians([0, 90])
+T = A_dh(q1, 0, L1, 0) @ A_dh(q2, 0, L2, 0)
+plot(T[:2, 3], "Punta")</code></pre>
+ <p class="callout">Comprueba primero el brazo plano. En el UR5 repetirás la misma operación con seis matrices, una por articulación.</p>
+</section>
+
+<section class="section"><div class="step">05 · Escena de clase</div><h2>Construye la tabla del UR5 entregado</h2>
+ <ol><li>Identifica las seis articulaciones en el orden base → herramienta. Marca el sentido positivo de cada eje.</li><li>Dibuja las referencias DH: <code>z</code> en el eje de giro y <code>x</code> sobre la normal común entre ejes <code>z</code>.</li><li>En la configuración cero, determina <code>a</code>, <code>d</code>, <code>α</code> y cualquier desfase de <code>θ</code> respecto del valor leído por CoppeliaSim.</li><li>Registra aparte la transformación entre la base de la escena y la base DH, y entre la última referencia DH y la herramienta medida.</li></ol>
+ <table style="margin-top:12px"><thead><tr><th>Articulación</th><th>θᵢ = qᵢ + desfase</th><th>dᵢ [m]</th><th>aᵢ [m]</th><th>αᵢ [rad]</th><th>Cómo lo medí</th></tr></thead><tbody>
+ <tr><td>1</td><td class="blank"></td><td></td><td></td><td></td><td></td></tr><tr><td>2</td><td class="blank"></td><td></td><td></td><td></td><td></td></tr><tr><td>3</td><td class="blank"></td><td></td><td></td><td></td><td></td></tr><tr><td>4</td><td class="blank"></td><td></td><td></td><td></td><td></td></tr><tr><td>5</td><td class="blank"></td><td></td><td></td><td></td><td></td></tr><tr><td>6</td><td class="blank"></td><td></td><td></td><td></td><td></td></tr></tbody></table>
+ <p class="callout">Usa los ejes y referencias de la escena, no solo las dimensiones externas de la malla. Un UR5 y un UR5e tienen parámetros distintos; además, la herramienta añadida cambia la transformación final.</p>
+</section>
+
+<section class="section"><div class="step">06 · Modelo completo</div><h2>De la tabla a la herramienta</h2>
+ <pre><code># Cada fila: (a, alpha, d, desfase_theta)
+# tabla = [(...), (...), (...), (...), (...), (...)]
+
+def cinematica_directa(q, tabla):
+    T = np.eye(4)
+    for i, (a, alpha, d, desfase) in enumerate(tabla):
+        T = T @ A_dh(q[i] + desfase, d, a, alpha)
+    return T
+
+# T_escena = T_base @ cinematica_directa(q, tabla) @ T_herramienta
+# Compara T_escena[:3, 3] con la posición real de la herramienta.</code></pre>
+ <div class="checklist"><span>Prueba 1: configuración cero.</span><span>Prueba 2: mueve solo la articulación 1.</span><span>Prueba 3: mueve solo la articulación 2.</span><span>Prueba 4: cambia varias articulaciones.</span></div>
+ <p class="callout">Si la predicción falla, revisa primero el orden de las matrices, las unidades, el signo de cada eje, los desfases y las referencias base/herramienta.</p>
+</section>
+
+<section class="section"><div class="step">07 · Ruta</div><h2>Una ruta articular produce una ruta de la herramienta</h2>
+ <pre><code># Elige dos configuraciones válidas para TU escena, en grados.
+q_inicio = np.radians([0, -20, 30, 0, 20, 0])
+q_final  = np.radians([15, -35, 45, 10, 30, -10])
+ruta_q = [q_inicio + t * (q_final - q_inicio)
+          for t in np.linspace(0, 1, 20)]
+
+# Una vez completada tabla:
+ruta_punta = [cinematica_directa(q, tabla)[:3, 3]
+              for q in ruta_q]
+trayectoria(ruta_punta, "Punta predicha")</code></pre>
+ <p class="callout"><strong>Observa:</strong> los valores articulares cambian de forma interpolada; la punta no tiene por qué seguir una línea recta. Para exigir una ruta cartesiana concreta habrá que resolver cinemática inversa en una etapa posterior.</p>
+</section>
+
+<section class="section"><div class="step">08 · Verificación</div><h2>Conecta el modelo con CoppeliaSim</h2>
+ <p>Cuando la escena esté preparada, el docente entregará las rutas de las seis articulaciones, la base y la herramienta. El código del estudiante enviará objetivos articulares y leerá la pose real para contrastarla con su predicción DH.</p>
+ <pre><code>client, sim = connect_coppelia()
+# rutas = ["/ruta_real/joint1", ..., "/ruta_real/joint6"]
+# articulaciones = [sim.getObject(ruta) for ruta in rutas]
+# herramienta = sim.getObject("/ruta_real/herramienta")
+# base = sim.getObject("/ruta_real/base")
+# q_real = np.array([sim.getJointPosition(j) for j in articulaciones])
+# T_predicha = T_base @ cinematica_directa(q_real, tabla) @ T_herramienta
+# p_real = np.array(sim.getObjectPose(herramienta, base)[:3])
+# error_m = np.linalg.norm(T_predicha[:3, 3] - p_real)</code></pre>
+ <p class="callout">Para ejecutar la ruta, envía cada <code>q</code> como objetivo de las seis articulaciones y espera a que el robot alcance ese tramo antes de continuar. Los límites y el modo de control pertenecen a la escena. Un control Lua de la escena puede validar y aplicar cada vector articular; el cálculo DH permanece en Python.</p>
+</section>
+
+<section class="section"><div class="step">Preparación docente · escena UR5</div><h2>Datos que deben estar claros antes de evaluar</h2>
+ <div class="checklist"><span>Modelo exacto: UR5 o UR5e, sin ambigüedad.</span><span>Seis articulaciones con nombres y orden estables.</span><span>Referencia base, herramienta/TCP y postura cero identificadas.</span><span>Sentido positivo, unidades y límites de cada articulación.</span><span>Control de posición configurado para recibir objetivos.</span><span>Si hay ventosa: función Lua y estado observable definidos.</span></div>
+ <p class="callout">El docente puede conservar una tabla DH de referencia para corregir, pero la actividad del estudiante parte de la escena y sus ejes. Un script Lua puede recibir vectores articulares y accionar la ventosa; Python sigue siendo el lugar donde se calcula y verifica el modelo.</p>
+</section>
+
+<div class="sources">Referencias para el docente: <a href="https://www.universal-robots.com/articles/ur/application-installation/dh-parameters-for-calculations-of-kinematics-and-dynamics/">parámetros DH oficiales de Universal Robots</a> (verifica UR5 frente a UR5e) · <a href="https://manual.coppeliarobotics.com/en/zmqRemoteApiOverview.htm">API ZeroMQ de CoppeliaSim</a> · <a href="https://manual.coppeliarobotics.com/en/sim/simSetJointTargetPosition.htm">objetivos articulares</a>. La tabla de la escena no se entrega resuelta a los estudiantes.</div>
+</main>
+</body>
+</html>

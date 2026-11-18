@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Iniciando SIMPY - CEAR</title>
+  <style>
+    :root { font-family: "Segoe UI", Arial, sans-serif; color-scheme: dark; }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: transparent; }
+    body { display: grid; place-items: center; padding: 16px; }
+    main {
+      position: relative; width: 100%; height: 100%; overflow: hidden;
+      border: 1px solid rgba(160, 223, 231, .27); border-radius: 22px;
+      background: radial-gradient(circle at 77% 23%, #245f75 0, transparent 42%),
+                  linear-gradient(132deg, #132c43 0%, #102436 62%, #0b1b2b 100%);
+      box-shadow: 0 18px 48px rgba(7, 26, 38, .31);
+    }
+    main::before {
+      content: ""; position: absolute; inset: 0 0 74px;
+      background-image: linear-gradient(rgba(181, 232, 234, .05) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(181, 232, 234, .05) 1px, transparent 1px);
+      background-size: 29px 29px; mask-image: linear-gradient(90deg, transparent, #000 50%);
+    }
+    .brand { position: absolute; top: 28px; left: 31px; display: flex; gap: 11px; align-items: center; }
+    .brand-mark {
+      display: grid; place-items: center; width: 33px; height: 33px; border-radius: 10px;
+      background: linear-gradient(145deg, #4bcee1, #2890b5); color: #092c42;
+      font-size: 16px; font-weight: 900; box-shadow: 0 5px 18px rgba(31, 180, 205, .25);
+    }
+    .brand-name { color: #f4fcff; font-size: 13px; font-weight: 800; letter-spacing: .035em; }
+    .brand-sub { margin-top: 2px; color: #a4c7d6; font-size: 10px; letter-spacing: .06em; }
+    .hero { position: absolute; inset: 63px 0 75px; display: grid; place-items: center; }
+    .hero svg { width: 300px; max-height: 176px; overflow: visible; }
+    .hero .orbit { animation: pulse 2.6s ease-in-out infinite; transform-origin: 218px 42px; }
+    .title { position: absolute; left: 31px; bottom: 84px; margin: 0; color: #f6fdff; font-size: 21px; font-weight: 750; letter-spacing: -.02em; }
+    .footer {
+      position: absolute; inset: auto 0 0; min-height: 74px; padding: 13px 31px 15px;
+      background: rgba(3, 17, 27, .47); border-top: 1px solid rgba(160, 223, 231, .12);
+    }
+    .status-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+    #heading { margin: 0; color: #f2fbfc; font-size: 12px; font-weight: 750; }
+    #percent { color: #78d9e1; font-size: 11px; font-weight: 800; font-variant-numeric: tabular-nums; }
+    #detail { margin: 4px 0 0; color: #a6c1cb; font-size: 11px; line-height: 1.25; }
+    .track { height: 3px; margin-top: 11px; overflow: hidden; border-radius: 4px; background: rgba(164, 207, 218, .17); }
+    .bar { width: 0; height: 100%; border-radius: inherit; background: #60d8e3; transition: width .25s ease; }
+    .track.indeterminate .bar { width: 32%; animation: scan 1.7s ease-in-out infinite alternate; }
+    @keyframes scan { from { transform: translateX(-110%); } to { transform: translateX(310%); } }
+    @keyframes pulse { 50% { opacity: .42; transform: scale(1.08); } }
+    @media (prefers-reduced-motion: reduce) { .bar, .hero .orbit { animation: none !important; transition: none; } }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="brand" aria-hidden="true">
+      <div class="brand-mark">R</div>
+      <div><div class="brand-name">SIMPY - CEAR</div><div class="brand-sub">COPPELIASIM · CEAR INACAP</div></div>
+    </div>
+    <div class="hero" aria-hidden="true">
+      <svg viewBox="0 0 300 176" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="arm" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#9ee8ef"/><stop offset="1" stop-color="#45a9c2"/></linearGradient>
+          <linearGradient id="base" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#53b8d0"/><stop offset="1" stop-color="#277994"/></linearGradient>
+        </defs>
+        <path d="M30 142H265" stroke="#448198" stroke-width="2" stroke-linecap="round"/>
+        <path d="M48 142V126H111V142" fill="url(#base)"/>
+        <path d="M78 125V100" stroke="url(#arm)" stroke-width="17" stroke-linecap="round"/>
+        <path d="M78 101L139 77" stroke="url(#arm)" stroke-width="16" stroke-linecap="round"/>
+        <path d="M139 77L191 94" stroke="url(#arm)" stroke-width="15" stroke-linecap="round"/>
+        <path d="M191 94L213 70" stroke="url(#arm)" stroke-width="12" stroke-linecap="round"/>
+        <circle cx="78" cy="100" r="13" fill="#c7f2f4" stroke="#318ca6" stroke-width="5"/>
+        <circle cx="139" cy="77" r="13" fill="#c7f2f4" stroke="#318ca6" stroke-width="5"/>
+        <circle cx="191" cy="94" r="11" fill="#c7f2f4" stroke="#318ca6" stroke-width="4"/>
+        <path d="M208 65L222 66L228 81L214 82Z" fill="#c8f0ed"/>
+        <path d="M208 83L231 83" stroke="#59d7d0" stroke-width="5" stroke-linecap="round"/>
+        <path d="M218 42V65M218 42L244 42M218 42L201 28" stroke="#73d9e3" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M242 38L248 42L242 46M214 61L218 67L222 61" fill="none" stroke="#73d9e3" stroke-width="2"/>
+        <circle class="orbit" cx="218" cy="42" r="24" fill="none" stroke="#7adddf" stroke-width="1.5" stroke-dasharray="4 6"/>
+        <rect x="245" y="112" width="30" height="30" rx="4" fill="#4a8ba1" stroke="#96dae0" stroke-width="2"/>
+        <path d="M245 126H275M260 112V142" stroke="#a9dce0" stroke-opacity=".55"/>
+      </svg>
+    </div>
+    <h1 class="title">Preparando tu cuaderno</h1>
+    <div class="footer" role="status" aria-live="polite" aria-atomic="true">
+      <div class="status-row"><p id="heading">Buscando actualizaciones</p><span id="percent"></span></div>
+      <p id="detail">Comprobando la versión disponible…</p>
+      <div class="track indeterminate" id="track"><div class="bar" id="bar"></div></div>
+    </div>
+  </main>
+  <script>
+    window.setUpdateStatus = ({ heading, detail, percent }) => {
+      document.getElementById('heading').textContent = heading;
+      document.getElementById('detail').textContent = detail;
+      const track = document.getElementById('track');
+      const known = Number.isFinite(percent);
+      track.classList.toggle('indeterminate', !known);
+      document.getElementById('bar').style.width = known ? `${Math.max(0, Math.min(100, percent))}%` : '';
+      document.getElementById('percent').textContent = known ? `${Math.floor(percent)} %` : '';
+    };
+  </script>
+</body>
+</html>

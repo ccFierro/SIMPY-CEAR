@@ -1,0 +1,14 @@
+﻿SIMPY - CEAR - WINDOWS X64
+Creado por CEAR Inacap.
+
+1. Extrae el ZIP completo en una carpeta.
+2. Ejecuta «SIMPY - CEAR.exe».
+3. Abre la escena de trabajo en CoppeliaSim Edu y conecta el cuaderno.
+
+El paquete incluye Python, NumPy, ZeroMQ, CBOR y el módulo roboticalab.
+Las actividades .roboticalab necesitan esta app; el archivo de actividad
+por sí solo no instala las funciones de control del robot.
+
+CoppeliaSim Edu y la escena se entregan por separado.
+Conserva juntos el ejecutable y las carpetas «app» y «runtime».
+Los trabajos se guardan en %LOCALAPPDATA%\CEAR RoboLab Coppelia para conservar actividades anteriores.
