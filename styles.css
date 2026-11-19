@@ -353,6 +353,15 @@ button { color: inherit; }
 .cell-fold::before { content: ""; display: inline-block; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: translateY(-2px) rotate(45deg); transition: transform .15s ease; }
 .code-cell.is-collapsed .cell-fold::before { transform: translateY(1px) rotate(-45deg); }
 .cell-fold:hover { border-color: var(--cyan); }
+.cell-enabled-label { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 3px; color: var(--muted); font-size: 10px; font-weight: 750; cursor: pointer; white-space: nowrap; }
+.cell-enabled { width: 15px; height: 15px; margin: 0; accent-color: var(--cyan); cursor: pointer; }
+.cell-move-controls { display: flex; flex: 0 0 auto; gap: 2px; }
+.cell-move { width: 23px; height: 25px; padding: 0; border: 1px solid var(--line); border-radius: 5px; color: var(--muted); background: var(--surface-soft); font-size: 15px; cursor: pointer; }
+.cell-move:hover:not(:disabled) { color: var(--cyan); border-color: var(--cyan); }
+.cell-move:disabled { opacity: .35; cursor: default; }
+.code-cell.is-disabled { border-left: 3px solid var(--muted); }
+.code-cell.is-disabled .cell-code-wrap { opacity: .62; }
+.code-cell.is-disabled .cell-status { color: var(--muted); }
 .cell-title { flex: 1; min-width: 0; padding: 5px 6px; border: 1px solid transparent; border-radius: 5px; color: var(--text); background: transparent; font-size: 12px; font-weight: 700; }
 .cell-title::placeholder { color: var(--muted); opacity: 1; }
 .cell-title:hover, .cell-title:focus { border-color: var(--line); outline: none; background: var(--surface-soft); }

@@ -23,7 +23,8 @@
       return {
         source: cell.source,
         title: typeof cell.title === "string" ? cell.title.slice(0, 80) : "",
-        collapsed: cell.collapsed === true
+        collapsed: cell.collapsed === true,
+        enabled: cell.enabled !== false
       };
     });
     const settings = input.settings && typeof input.settings === "object" ? input.settings : {};

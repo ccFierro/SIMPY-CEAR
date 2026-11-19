@@ -1,6 +1,6 @@
 {
   "name": "simpy-cear",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "private": true,
   "description": "Cuaderno Python dedicado a CoppeliaSim para CEAR Inacap.",
   "author": "CEAR Inacap",

@@ -142,9 +142,15 @@ function updateExecutionControls(run) {
   RoboticaIcons.add(document.getElementById("pauseExecution"), run?.paused ? "play" : "pause");
   document.getElementById("pauseExecution").disabled = Boolean(run?.cancelled);
   document.getElementById("stopExecution").hidden = !busy;
-  document.querySelectorAll(".cell-run, .cell-step, .cell-remove, .cell-insert-row button, #addCell, #resetNotebook, #openActivity, #showRecovery, #clearLocalData, #exportEvidence").forEach(button => { button.disabled = busy; });
+  document.querySelectorAll(".cell-remove, .cell-move, .cell-insert-row button, #addCell, #resetNotebook, #openActivity, #showRecovery, #clearLocalData, #exportEvidence").forEach(button => { button.disabled = busy; });
+  document.querySelectorAll(".cell-enabled").forEach(input => { input.disabled = busy; });
   document.querySelectorAll(".cell-editor").forEach(editor => { editor.readOnly = busy; });
-  document.querySelectorAll(".cell-run, .cell-step").forEach(button => { button.disabled = busy || pythonResetting || !PythonRuntime.available; });
+  document.querySelectorAll(".cell-run, .cell-step").forEach(button => { button.disabled = busy || pythonResetting || !PythonRuntime.available || !button.closest(".code-cell").querySelector(".cell-enabled").checked; });
+  const orderedCells = [...notebook.querySelectorAll(".code-cell")];
+  orderedCells.forEach((cell, index) => {
+    cell.querySelector(".cell-move-up").disabled = busy || pythonResetting || index === 0;
+    cell.querySelector(".cell-move-down").disabled = busy || pythonResetting || index === orderedCells.length - 1;
+  });
   document.querySelectorAll("#insertCoppelia, #legacyMatmul, #coppeliaClientPath").forEach(element => { element.disabled = busy; });
   document.getElementById("pythonStepBar").hidden = !busy || !run.paused || Boolean(currentAnimation);
   runtimeStatus.classList.toggle("ready", !busy && !pythonResetting && PythonRuntime.available);
@@ -739,7 +745,8 @@ function captureActivity(savedAt = new Date().toISOString()) {
     cells: [...notebook.querySelectorAll(".code-cell")].map(cell => ({
       source: cell.querySelector(".cell-editor").value,
       title: cell.querySelector(".cell-title").value.trim(),
-      collapsed: cell.classList.contains("is-collapsed")
+      collapsed: cell.classList.contains("is-collapsed"),
+      enabled: cell.querySelector(".cell-enabled").checked
     })),
     settings: {
       legacyMatmul: document.getElementById("legacyMatmul").checked,
@@ -1686,6 +1693,7 @@ async function runCells(cells, reset = false, mode = "run") {
   try {
     for (const cell of cells) {
       if (!await execution.checkpoint(run)) { ok = false; break; }
+      if (!cell.querySelector(".cell-enabled").checked) continue;
       if (!cell.querySelector(".cell-editor").value.trim()) continue;
       if (!await executeCell(cell, run)) { ok = false; break; }
     }
@@ -1738,7 +1746,7 @@ function resetNotebook(showMessage = true) {
     delete cell.dataset.activeLine;
     cell.classList.remove("executed", "error", "stale", "stepping");
     cell.querySelector(".execution-count").textContent = "";
-    setCellStatus(cell, "Sin ejecutar");
+    setCellStatus(cell, cell.querySelector(".cell-enabled").checked ? "Sin ejecutar" : "Desactivada");
     cell.querySelector(".cell-step").textContent = "Paso a paso";
     RoboticaIcons.add(cell.querySelector(".cell-step"), "step");
     updateLineNumbers(cell.querySelector(".cell-editor"));
@@ -1757,6 +1765,20 @@ function nextCodeCell(cell) {
   let next = cell.nextElementSibling;
   while (next && !next.classList.contains("code-cell")) next = next.nextElementSibling;
   return next;
+}
+
+function moveCell(cell, direction) {
+  if (execution.current || pythonResetting) return;
+  const cells = [...notebook.querySelectorAll(".code-cell")];
+  const other = cells[cells.indexOf(cell) + direction];
+  if (!other) return;
+  if (direction < 0) notebook.insertBefore(cell, other);
+  else notebook.insertBefore(other, cell);
+  refreshCellInsertControls();
+  resetNotebook(false);
+  selectActiveCell(cell);
+  cell.scrollIntoView({ block: "nearest" });
+  scheduleAutosave();
 }
 
 function setCellCollapsed(cell, collapsed, save = false) {
@@ -1798,6 +1820,9 @@ function refreshCellInsertControls() {
     cell.querySelector(".cell-title").placeholder = `Celda ${index + 1} · nombre opcional`;
     cell.querySelector(".cell-title").setAttribute("aria-label", `Nombre de la celda ${index + 1}`);
     setCellCollapsed(cell, cell.classList.contains("is-collapsed"));
+    cell.querySelector(".cell-enabled").setAttribute("aria-label", `Ejecutar celda ${index + 1}`);
+    cell.querySelector(".cell-move-up").disabled = !index || Boolean(execution.current) || pythonResetting;
+    cell.querySelector(".cell-move-down").disabled = index === cells.length - 1 || Boolean(execution.current) || pythonResetting;
     cell.querySelector(".cell-editor").setAttribute("aria-label", `Código de la celda ${index + 1}`);
     setCellStatus(cell, cell.querySelector(".cell-status").textContent);
     if (!index) return;
@@ -1838,6 +1863,32 @@ function createCell(source = "", focus = false, beforeCell = null, options = {})
   title.value = options.title || "";
   title.setAttribute("aria-label", "Nombre de la celda");
 
+  const enabledLabel = document.createElement("label");
+  enabledLabel.className = "cell-enabled-label";
+  enabledLabel.title = "Incluir esta celda al ejecutar el cuaderno";
+  const enabled = document.createElement("input");
+  enabled.type = "checkbox";
+  enabled.className = "cell-enabled";
+  enabled.checked = options.enabled !== false;
+  const enabledText = document.createElement("span");
+  enabledText.textContent = "Activa";
+  enabledLabel.append(enabled, enabledText);
+  const moveControls = document.createElement("div");
+  moveControls.className = "cell-move-controls";
+  const moveUp = document.createElement("button");
+  moveUp.type = "button";
+  moveUp.className = "cell-move cell-move-up";
+  moveUp.textContent = "↑";
+  moveUp.title = "Subir celda";
+  moveUp.setAttribute("aria-label", "Subir celda");
+  const moveDown = document.createElement("button");
+  moveDown.type = "button";
+  moveDown.className = "cell-move cell-move-down";
+  moveDown.textContent = "↓";
+  moveDown.title = "Bajar celda";
+  moveDown.setAttribute("aria-label", "Bajar celda");
+  moveControls.append(moveUp, moveDown);
+
   const meta = document.createElement("div");
   meta.className = "cell-meta";
   const executionCount = document.createElement("span");
@@ -1852,7 +1903,7 @@ function createCell(source = "", focus = false, beforeCell = null, options = {})
   const executionLocation = document.createElement("span");
   executionLocation.className = "cell-execution-location";
   executionLocation.hidden = true;
-  heading.append(fold, title, executionLocation, meta);
+  heading.append(fold, enabledLabel, title, moveControls, executionLocation, meta);
   const actions = document.createElement("div");
   actions.className = "cell-actions";
   const run = document.createElement("button");
@@ -1909,10 +1960,20 @@ function createCell(source = "", focus = false, beforeCell = null, options = {})
   updateLineNumbers(editor);
   refreshCellInsertControls();
   setCellCollapsed(cell, options.collapsed === true);
+  cell.classList.toggle("is-disabled", !enabled.checked);
+  if (!enabled.checked) setCellStatus(cell, "Desactivada");
   cell.addEventListener("pointerdown", () => selectActiveCell(cell));
 
   fold.addEventListener("click", () => setCellCollapsed(cell, !cell.classList.contains("is-collapsed"), true));
   title.addEventListener("input", scheduleAutosave);
+  enabled.addEventListener("change", () => {
+    cell.classList.toggle("is-disabled", !enabled.checked);
+    resetNotebook(false);
+    updateExecutionControls(execution.current);
+    scheduleAutosave();
+  });
+  moveUp.addEventListener("click", () => moveCell(cell, -1));
+  moveDown.addEventListener("click", () => moveCell(cell, 1));
 
   run.addEventListener("click", () => runCells([cell]));
   step.addEventListener("click", () => advanceCellStep(cell));
@@ -1925,6 +1986,8 @@ function createCell(source = "", focus = false, beforeCell = null, options = {})
     if (cells.length === 1) {
       editor.value = "";
       title.value = "";
+      enabled.checked = true;
+      cell.classList.remove("is-disabled");
       setCellCollapsed(cell, false);
       updateLineNumbers(editor);
       editor.focus();
