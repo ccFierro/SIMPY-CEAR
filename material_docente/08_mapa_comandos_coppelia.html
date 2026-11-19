@@ -32,7 +32,7 @@
 
   <div class="toolbar" role="search">
     <label class="search"><span class="sr-only">Buscar comando</span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg><input id="search" type="search" placeholder="Buscar comando o tarea…" autocomplete="off"></label>
-    <nav class="anchors" aria-label="Secciones"><a href="#conexion">Conexión</a><a href="#poses">Poses</a><a href="#movimiento">Movimiento</a><a href="#sensores">Sensores e IO</a><a href="#objetos">Objetos</a><a href="#modelo">DH</a><a href="#python">Python y panel</a></nav>
+    <nav class="anchors" aria-label="Secciones"><a href="#conexion">Conexión</a><a href="#poses">Poses</a><a href="#movimiento">Movimiento</a><a href="#sensores">Sensores e IO</a><a href="#objetos">Objetos</a><a href="#modelo">Cinemática</a><a href="#python">Python y panel</a></nav>
     <span class="result-count" id="count" aria-live="polite"></span>
   </div>
 
@@ -127,11 +127,11 @@ escena.delete_object(copia)</code></pre><button class="copy" type="button" aria-
     </section>
 
     <section class="chapter" id="modelo" aria-labelledby="modelo-title">
-      <div class="chapter-head"><div><span class="kicker">06 · Modelo matemático</span><h2 id="modelo-title">DH y cinemática</h2></div><p>La tabla DH sirve para estudiar el modelo. Actualmente <code>movej</code> y <code>movel</code> resuelven IK con la geometría de CoppeliaSim.</p></div>
+      <div class="chapter-head"><div><span class="kicker">06 · Geometría de la escena</span><h2 id="modelo-title">Cinemática en CoppeliaSim</h2></div><p>La app usa la cadena articular y el TCP de la escena. Puedes calcular posturas sin mover el brazo.</p></div>
       <div class="grid">
-        <article class="card wide amber"><div class="card-top"><span class="tag">DH</span></div><h3>Configurar la tabla</h3><p>Seis filas <code>(a, d, alpha)</code> en metros y radianes. Los valores dependen del modelo y de los marcos elegidos.</p><div class="code-wrap"><pre><code>robot.set_dh(tabla_DH)</code></pre><button class="copy" type="button" aria-label="Copiar código: configurar DH">Copiar</button></div></article>
-        <article class="card wide blue"><div class="card-top"><span class="tag">FK</span></div><h3>Calcular T06</h3><p>Usa los seis ángulos actuales y la tabla configurada. Devuelve una matriz 4×4; no mueve el brazo.</p><div class="code-wrap"><pre><code>q = robot.q()
-T06 = robot.forward_kinematics(q)</code></pre><button class="copy" type="button" aria-label="Copiar código: calcular T06">Copiar</button></div></article>
+        <article class="card wide amber"><div class="card-top"><span class="tag">FK</span></div><h3>Pose del TCP</h3><p>Lee la pose World actual o calcula la pose para seis ángulos. <code>fk(q)</code> consulta simIK sin mover el robot.</p><div class="code-wrap"><pre><code>pose_actual = robot.fk()
+pose_prevista = robot.fk(robot.q())</code></pre><button class="copy" type="button" aria-label="Copiar código: pose TCP desde la escena">Copiar</button></div></article>
+        <article class="card wide blue"><div class="card-top"><span class="tag">IK</span></div><h3>Calcular articulaciones</h3><p>Busca una postura articular para una posición World usando simIK. <code>ik</code> no envía movimiento al robot.</p><div class="code-wrap"><pre><code>q_destino = robot.ik([0.35, 0, 0.45])</code></pre><button class="copy" type="button" aria-label="Copiar código: calcular articulaciones con IK">Copiar</button></div></article>
       </div>
     </section>
 

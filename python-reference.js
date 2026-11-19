@@ -62,27 +62,47 @@
     }
   ];
 
-  // Esta variante usa CoppeliaSim como visualización externa.
-  for (let index = sections.length - 1; index >= 0; index -= 1) {
-    if (!["python", "coppelia", "fundamentals", "output"].includes(sections[index].id)) sections.splice(index, 1);
-  }
-  sections.find(section => section.id === "coppelia").entries = sections.find(section => section.id === "coppelia").entries
-    .filter(entry => entry[0] !== "Panel programable");
-  sections.find(section => section.id === "coppelia").entries.push(
-    ["Conectar robot UR", "robot = conectar_ur('/UR3')", "Encuentra las seis articulaciones y el sensor TCP de la ventosa. Usa el botón superior para iniciar la simulación.", "robot = conectar_ur('/UR3', port=23000)\nprint(robot.q())"],
-    ["Cinemática directa DH", "robot.forward_kinematics(q)", "Configura seis filas (a, d, alpha) con set_dh. Devuelve T06 del modelo DH; todavía no es una orden de movimiento.", "robot.set_dh(tabla_DH)\nT06 = robot.forward_kinematics(robot.q())\nprint(T06)"],
-    ["Pose TCP", "p[x, y, z]", "Define una posición del TCP en World de Coppelia, en metros. Intenta conservar la orientación actual. Tras align_z, MoveJ puede girar la ventosa alrededor del eje vertical para encontrar una postura, manteniendo su dirección. Usa p[x, y, z, rx, ry, rz] si necesitas una orientación exacta, con vector de rotación en radianes.", "arriba = p[0.350, 0, 0.455]"],
-    ["Alinear Z", "robot.align_z(1)", "Orienta el eje Z de la herramienta: 1 hacia abajo, -1 hacia arriba, respecto de World. Mantiene la posición del TCP cuando la postura es alcanzable.", "robot.align_z(1)  # ventosa hacia abajo"],
-    ["Movimiento articular", "robot.movej(destino)", "Acepta seis ángulos articulares o una pose p[...]. Con pose, prueba varias posturas iniciales de IK internamente y mueve las articulaciones; el TCP puede seguir una curva.", "robot.movej(p[0.350, 0, 0.455])"],
-    ["Movimiento lineal", "robot.movel(destino)", "Acepta una pose p[...] y resuelve IK a lo largo de una línea del TCP. p[x, y, z] conserva la orientación actual.", "robot.movel(p[0.350, 0, 0.405])"],
-    ["Posición TCP", "robot.tcp_position()", "Devuelve [x, y, z] del sensor de la ventosa en coordenadas World, en metros. tcp_pose() agrega su orientación como cuaternión.", "posicion = robot.tcp_position()\nrobot.movel([posicion[0], posicion[1], posicion[2] - 0.005])"],
-    ["Bajar hasta contacto", "robot.lower_until_contact(z_minima)", "Baja el TCP en pasos de 5 mm hasta tocar una pieza dinámica o alcanzar la altura mínima. Devuelve la pieza detectada o None; el bucle queda dentro de la función.", "contacto = robot.lower_until_contact(0.34)\nif contacto:\n    robot.set_output('DO_00', True)\n    robot.wait_input('DI_01', 1)"],
-    ["Detectar contacto", "robot.detect_contact()", "Consulta una vez el sensor de la ventosa. Devuelve la ruta y distancia de una pieza dinámica a menos de 7 mm, o None.", "contacto = robot.detect_contact()\nif contacto:\n    print(contacto['ruta'])"],
-    ["Entradas y salidas", "robot.read_input / robot.set_output", "Lee una señal de la escena por su etiqueta o cambia una salida. Estas funciones Python usan nombres como DI_01 y DO_00.", "if robot.read_input('DI_01') == 0:\n    robot.set_output('DO_00', True)\n    robot.wait_input('DI_01', 1)"]
+  // La guía lateral muestra solo las operaciones usadas por esta variante.
+  sections.splice(0, sections.length,
+    { id: "inicio", label: "Conexión", entries: [
+      ["Conectar robot", "conectar_ur('/UR3', port=23000)", "Conecta con un robot de la escena. Cambia la ruta si usas otro modelo.", "robot = conectar_ur('/UR3', port=23000)"],
+      ["Conectar escena", "conectar_escena(port=23000)", "Accede a objetos de la escena sin seleccionar un robot.", "escena = conectar_escena(port=23000)"],
+      ["Iniciar simulación", "robot.start_simulation()", "Inicia la simulación desde Python antes de mover el brazo.", "robot.start_simulation()"],
+      ["Detener simulación", "robot.stop_simulation()", "Detiene la simulación de CoppeliaSim.", "robot.stop_simulation()"],
+      ["Leer articulaciones", "robot.q()", "Devuelve los seis ángulos articulares actuales en radianes.", "angulos = robot.q()\nprint(angulos)"]
+    ] },
+    { id: "movimiento", label: "Movimiento", entries: [
+      ["Definir pose", "p[x, y, z, rx, ry, rz]", "X, Y y Z están en metros World; rx, ry y rz son un vector de rotación en radianes. Con solo tres valores se conserva la orientación actual.", "preToma = p[-0.35, 0.335, 0.45, 0, -3.14159, 0]"],
+      ["Alinear herramienta", "robot.align_z(1)", "Orienta Z de la herramienta hacia abajo. Usa -1 para orientarla hacia arriba.", "robot.align_z(1)"],
+      ["Movimiento articular", "robot.movej(destino)", "Mueve las articulaciones hacia una pose o una lista de seis ángulos. El TCP no sigue necesariamente una línea.", "robot.movej(preToma)"],
+      ["Movimiento lineal", "robot.movel(destino)", "Desplaza el TCP en línea recta hasta la pose indicada.", "robot.movel(preToma)"],
+      ["Bajar hasta contacto", "robot.lower_until_contact(z_minima)", "Baja en pasos hasta tocar una pieza o alcanzar el límite de Z.", "pieza = robot.lower_until_contact(0.34)"],
+      ["Pose del TCP", "robot.tcp_position() / robot.tcp_rotation_vector()", "Lee la posición World y la orientación actual del sensor TCP.", "posicion = robot.tcp_position()\norientacion = robot.tcp_rotation_vector()"],
+      ["Cinemática de la escena", "robot.fk(q) / robot.ik(posicion)", "fk devuelve la pose World del TCP para unos ángulos sin mover el robot; sin q lee la postura actual. ik calcula ángulos para un destino usando simIK. Ambos usan la geometría de CoppeliaSim.", "pose_actual = robot.fk()\npose_prevista = robot.fk(robot.q())\nq_destino = robot.ik([0.35, 0, 0.45])"]
+    ] },
+    { id: "senales", label: "Señales", entries: [
+      ["Leer entrada digital", "robot.read_input('DI_01')", "Lee 0 o 1. Consulta «Señales y equipos» para conocer las direcciones de la escena.", "sujeto = robot.read_input('DI_01')"],
+      ["Activar salida digital", "robot.set_output('DO_00', True)", "Activa o desactiva una salida, por ejemplo la ventosa.", "robot.set_output('DO_00', True)"],
+      ["Esperar entrada", "robot.wait_input('DI_01', 1)", "Espera un valor hasta el tiempo límite; si no llega, genera un error de espera.", "robot.wait_input('DI_01', 1)"],
+      ["Velocidad de cinta", "robot.set_analog_output('AO_00', mm_s)", "Velocidad firmada en mm/s: positiva, negativa o cero para detener.", "robot.set_analog_output('AO_00', 80)"]
+    ] },
+    { id: "objetos", label: "Objetos", entries: [
+      ["Crear cubo", "escena.create_cube(nombre, posicion, lado)", "Crea un cubo en coordenadas World. dinamico=False lo deja fijo.", "cubo = escena.create_cube('pieza', [0.3, 0, 0.35], lado=0.05, dinamico=False)"],
+      ["Copiar objeto", "escena.copy_object(ruta, nombre, posicion)", "Copia una forma individual existente y la ubica en World.", "copia = escena.copy_object('/Cuboid', 'pieza2', [0.3, 0, 0.35], dinamico=False)"],
+      ["Eliminar objeto creado", "escena.delete_object(objeto)", "Elimina un objeto creado por esta conexión de escena.", "escena.delete_object(cubo)"]
+    ] },
+    { id: "python", label: "Python", entries: [
+      ["Condición", "if / else", "Ejecuta acciones según el estado de un sensor.", "if robot.read_input('DI_01') == 1:\n    robot.movel(preToma)"],
+      ["Bucle", "while", "Repite la lectura de una condición. Detén la celda para interrumpirlo.", "while robot.read_input('DI_00') == 0:\n    pass"],
+      ["Función", "def nombre(...)", "Agrupa instrucciones reutilizables.", "def soltar():\n    robot.set_output('DO_00', False)"],
+      ["Autocompletar", "robot. / Ctrl+Espacio", "Al escribir un punto aparecen los métodos disponibles. Ctrl+Espacio también solicita sugerencias manualmente.", "robot."]
+    ] }
   );
 
   const panel = document.getElementById("pythonReference");
   const trigger = document.getElementById("referenceTrigger");
+  const guideButton = document.getElementById("guideButton");
+  const tabs = document.getElementById("referenceTabs");
   const closeButton = document.getElementById("referenceClose");
   const backdrop = document.getElementById("referenceBackdrop");
   const search = document.getElementById("referenceSearch");
@@ -91,7 +111,8 @@
   const count = document.getElementById("referenceCount");
   let lastFocusedEditor = document.querySelector(".cell-editor");
   let focusBeforeOpen = null;
-  let selectedKey = "python:0";
+  let selectedSection = "inicio";
+  let selectedKey = "inicio:0";
 
   function setOpen(open) {
     const wasOpen = document.body.classList.contains("reference-open");
@@ -100,6 +121,7 @@
     document.body.classList.toggle("reference-open", open);
     panel.setAttribute("aria-hidden", String(!open));
     trigger.setAttribute("aria-expanded", String(open));
+    guideButton.setAttribute("aria-expanded", String(open));
     if (open) {
       search.focus({ preventScroll: true });
       requestAnimationFrame(() => {
@@ -154,7 +176,7 @@
 
   function renderEntries() {
     const query = search.value.trim().toLocaleLowerCase("es");
-    const groups = sections.map(section => ({
+    const groups = sections.filter(section => section.id === selectedSection).map(section => ({
       section,
       items: section.entries.map((entry, index) => ({ section, entry, key: `${section.id}:${index}` }))
         .filter(item => !query || `${section.label} ${item.entry.join(" ")}`.toLocaleLowerCase("es").includes(query))
@@ -203,7 +225,24 @@
       }
     }
     renderDetail(items.find(item => item.key === selectedKey));
-    count.textContent = `${items.length} tema${items.length === 1 ? "" : "s"} disponible${items.length === 1 ? "" : "s"} · Desplázate por la lista o por el ejemplo.`;
+    count.textContent = `${items.length} comando${items.length === 1 ? "" : "s"} en ${sections.find(section => section.id === selectedSection)?.label || "la guía"}.`;
+  }
+
+  for (const section of sections) {
+    const tab = document.createElement("button");
+    tab.type = "button";
+    tab.role = "tab";
+    tab.textContent = section.label;
+    tab.setAttribute("aria-selected", String(section.id === selectedSection));
+    tab.addEventListener("click", () => {
+      selectedSection = section.id;
+      selectedKey = `${section.id}:0`;
+      search.value = "";
+      tabs.querySelectorAll('[role="tab"]').forEach(button => button.setAttribute("aria-selected", String(button === tab)));
+      renderEntries();
+      list.scrollTop = 0;
+    });
+    tabs.append(tab);
   }
 
   trigger.addEventListener("click", () => setOpen(!document.body.classList.contains("reference-open")));

@@ -18,7 +18,7 @@ robot.align_z(1)
 robot.movej(p[0.35, 0, 0.45])
 ```
 
-`p[x, y, z]` expresa una posición World en metros y conserva la orientación actual del TCP. `p[x, y, z, rx, ry, rz]` añade un vector de rotación en radianes. Para mover el robot a una pose, `movej` y `movel` utilizan la cinemática inversa `simIK` de CoppeliaSim. Las funciones DH del cuaderno permiten estudiar la cinemática directa; no alimentan todavía la IK del movimiento.
+`p[x, y, z]` expresa una posición World en metros y conserva la orientación actual del TCP. `p[x, y, z, rx, ry, rz]` añade un vector de rotación en radianes. Para mover el robot a una pose, `movej` y `movel` utilizan `simIK` y la geometría de la escena de CoppeliaSim. `robot.fk()` lee la pose TCP actual; `robot.fk(q)` calcula la pose correspondiente a seis ángulos sin mover el brazo. No se necesita una tabla DH para estas operaciones.
 
 Para preparar objetos de práctica:
 

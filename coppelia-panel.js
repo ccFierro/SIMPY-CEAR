@@ -109,18 +109,17 @@
       const description = signalDescription(signal);
       const details = document.createElement("div");
       details.className = "scene-signal-details";
+      const address = document.createElement("code");
+      address.className = "scene-signal-address";
+      address.textContent = signal.name;
       const label = document.createElement("strong");
       label.textContent = description.equipment;
-      const meta = document.createElement("span");
-      const name = document.createElement("code");
-      name.textContent = signal.name;
-      meta.append(name);
+      details.append(address, label);
       if (description.action) {
         const action = document.createElement("span");
-        action.textContent = ` · ${description.action}`;
-        meta.append(action);
+        action.textContent = description.action;
+        details.append(action);
       }
-      details.append(label, meta);
       const state = document.createElement("strong");
       state.className = "scene-signal-value";
       row.append(details, state);

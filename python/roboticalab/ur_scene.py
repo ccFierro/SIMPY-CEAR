@@ -101,7 +101,7 @@ def _interpolate_quaternion(start, end, fraction):
 
 
 class RobotUR:
-    """Puente con la escena: movej en juntas y movel por puntos TCP con simIK."""
+    """Movimiento con la geometría de la escena y la IK de CoppeliaSim."""
 
     def __init__(self, client, sim, ruta="/UR3", sensor="/suctionPad/Sensor",
                  semilla_ik=None):
@@ -125,6 +125,7 @@ class RobotUR:
         self._entorno = None
         self._aligned_z = None
 
+    # Compatibilidad con actividades guardadas: DH no participa en movej, movel ni fk.
     def set_dh(self, tabla):
         rows = np.asarray(tabla, dtype=float)
         if rows.shape != (6, 3) or not np.all(np.isfinite(rows)):
@@ -388,6 +389,22 @@ class RobotUR:
     def tcp_rotation_vector(self):
         """Orientación actual del TCP en World, en radianes."""
         return _rotation_vector(self.tcp_pose()[3:])
+
+    def fk(self, q=None):
+        """Pose World del TCP para q, calculada con la geometría de la escena.
+
+        Si q se omite, lee la postura real. Con q, consulta el entorno simIK
+        sin enviar objetivos articulares al robot de CoppeliaSim.
+        """
+        if q is None:
+            pose = self.tcp_pose()
+        else:
+            angles = self._angles(q)
+            self._prepare_ik()
+            for joint, angle in zip(self._ik_joints, angles):
+                self._ik.setJointPosition(self._entorno, joint, float(angle))
+            pose = self._ik.getObjectPose(self._entorno, self._ik_tip)
+        return Pose([*pose[:3], *_rotation_vector(pose[3:])])
 
     def align_z(self, direction):
         """Orienta el eje Z del TCP: 1 hacia abajo, -1 hacia arriba en World."""

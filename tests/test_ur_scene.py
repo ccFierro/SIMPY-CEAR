@@ -89,6 +89,28 @@ class RobotSceneTests(unittest.TestCase):
         robot.configurar_dh(table)
         self.assertTrue(np.allclose(robot.forward_kinematics([0] * 6), expected))
 
+    def test_scene_fk_reads_current_or_hypothetical_pose_without_moving(self):
+        robot = self.make_robot()
+        self.assertEqual(robot.fk(), p[0, 0, 0, 0, 0, 0])
+
+        class FakeIK:
+            def __init__(self):
+                self.angles = {}
+
+            def setJointPosition(self, environment, joint, angle):
+                self.angles[joint] = angle
+
+            def getObjectPose(self, environment, tip):
+                return [self.angles[0], self.angles[1], self.angles[2], 0, 0, 0, 1]
+
+        robot._prepare_ik = lambda: None
+        robot._ik = FakeIK()
+        robot._entorno = 1
+        robot._ik_tip = 9
+        robot._ik_joints = list(range(6))
+        self.assertEqual(robot.fk([0.1, 0.2, 0.3, 0, 0, 0]), p[0.1, 0.2, 0.3, 0, 0, 0])
+        self.assertEqual(robot.sim.commands, [])
+
     def test_pose_notation_distinguishes_tcp_pose_from_joint_angles(self):
         target = p[0.35, 0, 0.455, np.pi, 0, 0]
         self.assertIsInstance(target, Pose)

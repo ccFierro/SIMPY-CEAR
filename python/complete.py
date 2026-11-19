@@ -13,7 +13,7 @@ def main():
     items = script.complete(int(data["line"]), int(data["column"]))
     print(json.dumps({"items": [
         {"name": item.name, "complete": item.complete, "type": item.type}
-        for item in items[:40]
+        for item in items[:100]
     ]}), flush=True)
 
 
