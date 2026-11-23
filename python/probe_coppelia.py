@@ -12,7 +12,7 @@ if extra_path:
 
 from roboticalab import connect_coppelia
 from roboticalab.manual_control import jog_joint, jog_target, scene_snapshot, simulation_running
-from roboticalab.scene_inventory import scene_inventory, sensor_pose
+from roboticalab.scene_inventory import scene_inventory, sensor_pose, identify_equipment, test_conveyor
 from roboticalab.pose_marker import marker_action
 
 client = None
@@ -33,6 +33,10 @@ try:
         result = scene_inventory(sim)
     elif action == "tcpPose":
         result = sensor_pose(sim, data.get("path"))
+    elif action == "identifyEquipment":
+        result = identify_equipment(sim, data.get("channel"))
+    elif action == "testConveyor":
+        result = test_conveyor(sim, data.get("channel"))
     elif action == "jogJoint":
         result = jog_joint(sim, data.get("path"), data.get("direction"), data.get("step"))
     elif action == "jogTarget":

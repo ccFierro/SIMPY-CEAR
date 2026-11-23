@@ -541,6 +541,12 @@ class RobotUR:
     def read_input(self, nombre):
         return self.sim.getInt32Signal(nombre)
 
+    def read_analog_input(self, nombre):
+        """Lee un canal AI_XX, por ejemplo un promedio RGB de 0 a 255."""
+        if not isinstance(nombre, str) or re.fullmatch(r"AI_\d{2}", nombre) is None:
+            raise ValueError("La entrada analógica debe llamarse AI_XX.")
+        return self.sim.getFloatSignal(nombre)
+
     def wait_input(self, nombre, esperado, timeout=3):
         limit = time.monotonic() + timeout
         while time.monotonic() < limit:

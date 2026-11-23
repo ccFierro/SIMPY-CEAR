@@ -355,7 +355,7 @@ def handler_for(app):
                     self.reply(200, {"ok": True})
                     return
                 if endpoint == "/api/coppelia":
-                    if data.get("action") not in ("probe", "stop", "start", "scene", "inventory", "tcpPose", "jogJoint", "jogTarget", "markerCreate", "markerRead", "markerSet", "markerJog", "markerAlignTcp", "markerMoveTcp", "markerDelete"):
+                    if data.get("action") not in ("probe", "stop", "start", "scene", "inventory", "tcpPose", "identifyEquipment", "testConveyor", "jogJoint", "jogTarget", "markerCreate", "markerRead", "markerSet", "markerJog", "markerAlignTcp", "markerMoveTcp", "markerDelete"):
                         raise ValueError("Acción de CoppeliaSim inválida")
                     self.reply(200, coppelia_action(data))
                     return

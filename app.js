@@ -13,6 +13,7 @@
     search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/>',
     reset: '<path d="M3 11a9 9 0 1 1 2.5 7M3 5v6h6"/>',
     plus: '<path d="M12 4v16M4 12h16"/>',
+    chevron: '<path d="m6 9 6 6 6-6"/>',
     play: '<path d="m7 4 13 8-13 8z"/>',
     step: '<path d="m5 4 11 8-11 8zM20 4v16"/>',
     pause: '<path d="M8 5v14M16 5v14"/>',
@@ -1820,7 +1821,7 @@ function refreshCellInsertControls() {
     cell.querySelector(".cell-title").placeholder = `Celda ${index + 1} · nombre opcional`;
     cell.querySelector(".cell-title").setAttribute("aria-label", `Nombre de la celda ${index + 1}`);
     setCellCollapsed(cell, cell.classList.contains("is-collapsed"));
-    cell.querySelector(".cell-enabled").setAttribute("aria-label", `Ejecutar celda ${index + 1}`);
+    cell.querySelector(".cell-enabled").setAttribute("aria-label", `Activar celda ${index + 1} para ejecución`);
     cell.querySelector(".cell-move-up").disabled = !index || Boolean(execution.current) || pythonResetting;
     cell.querySelector(".cell-move-down").disabled = index === cells.length - 1 || Boolean(execution.current) || pythonResetting;
     cell.querySelector(".cell-editor").setAttribute("aria-label", `Código de la celda ${index + 1}`);
@@ -1856,6 +1857,7 @@ function createCell(source = "", focus = false, beforeCell = null, options = {})
   fold.type = "button";
   fold.className = "cell-fold";
   fold.setAttribute("aria-controls", `cell-code-${cell.dataset.cellNumber} cell-output-region-${cell.dataset.cellNumber}`);
+  RoboticaIcons.add(fold, "chevron");
   const title = document.createElement("input");
   title.type = "text";
   title.className = "cell-title";
@@ -1871,8 +1873,12 @@ function createCell(source = "", focus = false, beforeCell = null, options = {})
   enabled.className = "cell-enabled";
   enabled.checked = options.enabled !== false;
   const enabledText = document.createElement("span");
+  enabledText.className = "cell-enabled-text";
   enabledText.textContent = "Activa";
-  enabledLabel.append(enabled, enabledText);
+  const enabledTrack = document.createElement("span");
+  enabledTrack.className = "cell-enabled-track";
+  enabledTrack.setAttribute("aria-hidden", "true");
+  enabledLabel.append(enabled, enabledText, enabledTrack);
   const moveControls = document.createElement("div");
   moveControls.className = "cell-move-controls";
   const moveUp = document.createElement("button");
@@ -1903,7 +1909,7 @@ function createCell(source = "", focus = false, beforeCell = null, options = {})
   const executionLocation = document.createElement("span");
   executionLocation.className = "cell-execution-location";
   executionLocation.hidden = true;
-  heading.append(fold, enabledLabel, title, moveControls, executionLocation, meta);
+  heading.append(fold, title, moveControls, executionLocation, meta, enabledLabel);
   const actions = document.createElement("div");
   actions.className = "cell-actions";
   const run = document.createElement("button");

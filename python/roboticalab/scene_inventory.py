@@ -7,6 +7,7 @@ from .ur_scene import _rotation_vector
 
 
 MANIFEST_TAG = "customData.CEAR_RoboLab"
+DEVICE_TAG = "customData.CEAR_RoboLab_io"
 
 
 def _manifest(sim):
@@ -60,6 +61,44 @@ def _published_signals(sim):
     return found
 
 
+def _device_signals(sim, robot_roots=()):
+    """Relaciona canales persistentes con el equipo real, incluso con un Lua anterior."""
+    result = {}
+    obsolete_feedback = set()
+    for kind in (getattr(sim, "object_dummy_type", None), sim.object_proximitysensor_type,
+                 sim.object_visionsensor_type):
+        if kind is None:
+            continue
+        for handle in sim.getObjectsInTree(sim.handle_scene, kind, 0)[:100]:
+            try:
+                packed = sim.getBufferProperty(handle, DEVICE_TAG, {"noError": True})
+                tag = sim.unpackTable(packed) if packed else None
+                if not isinstance(tag, dict) or tag.get("uid") != sim.getStringProperty(handle, "persistentUid"):
+                    continue
+                path = _path(sim, handle)
+                if kind in (sim.object_proximitysensor_type, sim.object_visionsensor_type) and any(
+                        path == root or path.startswith(root + "/") for root in robot_roots):
+                    continue
+                if tag.get("kind") == "conveyor" and kind == getattr(sim, "object_dummy_type", None):
+                    channel = tag.get("analog")
+                    if isinstance(channel, str):
+                        result.setdefault(channel, {"path": path, "kind": "conveyor"})
+                    if isinstance(tag.get("feedback"), str):
+                        obsolete_feedback.add(tag["feedback"])
+                elif tag.get("kind") == "lineSensor" and kind == sim.object_proximitysensor_type:
+                    channel = tag.get("input")
+                    if isinstance(channel, str):
+                        result.setdefault(channel, {"path": path, "kind": "sensor"})
+                elif tag.get("kind") == "colorSensor" and kind == sim.object_visionsensor_type:
+                    for field in ("red", "green", "blue"):
+                        channel = tag.get(field)
+                        if isinstance(channel, str):
+                            result.setdefault(channel, {"path": path, "kind": "sensor"})
+            except Exception:
+                continue
+    return result, obsolete_feedback
+
+
 def scene_inventory(sim):
     """Describe objetos y señales sin iniciar ni modificar la simulación."""
     manifest = _manifest(sim)
@@ -103,18 +142,27 @@ def scene_inventory(sim):
             if sensor["path"] == path:
                 sensor["name"] = str(declared.get("name") or sensor["name"])
                 break
+    device_signals, obsolete_feedback = _device_signals(sim, robots)
+    legacy_laser_exists = any(sensor["path"] == "/LaserSensor" for sensor in sensors)
     signals = []
     for declared in manifest.get("signals", []):
         if not isinstance(declared, dict):
             continue
         name = declared.get("name")
         direction = declared.get("direction")
+        label = str(declared.get("label") or name)
+        if name in obsolete_feedback or label.endswith(": en movimiento"):
+            continue
+        if name == "DI_00" and "laser" in label.casefold() and not legacy_laser_exists and name not in device_signals:
+            continue
         if isinstance(name, str) and direction in ("input", "output"):
-            signals.append({"name": name, "label": str(declared.get("label") or name),
+            signals.append({"name": name, "label": label,
                             "direction": direction, "unit": str(declared.get("unit") or ""),
                             "value": _signal(sim, name)})
     known = {signal["name"] for signal in signals}
     for name in _published_signals(sim):
+        if name in obsolete_feedback or name == "DI_00" and not legacy_laser_exists and name not in device_signals:
+            continue
         if name not in known:
             signals.append({"name": name, "label": name,
                             "direction": "input" if name.startswith(("DI_", "AI_")) else "output",
@@ -133,6 +181,10 @@ def scene_inventory(sim):
             else:
                 signals.append({"name": name, "label": label, "direction": direction,
                                 "value": _signal(sim, name)})
+    if legacy_laser_exists:
+        device_signals.setdefault("DI_00", {"path": "/LaserSensor", "kind": "sensor"})
+    for signal in signals:
+        signal.update(device_signals.get(signal["name"], {}))
     return {"ok": True, "running": simulation_running(sim),
             "paused": sim.getSimulationState() == sim.simulation_paused,
             "declared": bool(manifest),
@@ -151,3 +203,45 @@ def sensor_pose(sim, path):
     return {"ok": True, "path": sim.getObjectAlias(handle, 2),
             "position": [float(value) for value in pose[:3]],
             "rotation": [float(value) for value in _rotation_vector(pose[3:])]}
+
+
+def identify_equipment(sim, channel):
+    """Selecciona en CoppeliaSim el equipo al que pertenece un canal publicado."""
+    signal = next((item for item in scene_inventory(sim)["signals"] if item["name"] == channel), None)
+    if not signal or not signal.get("path"):
+        raise ValueError("Este canal no tiene un equipo identificable en la escena.")
+    handle = sim.getObject(signal["path"], {"noError": True})
+    if handle is None or handle == -1:
+        raise ValueError("El equipo ya no está disponible en la escena.")
+    sim.setObjectSel([handle])
+    if signal.get("kind") == "conveyor":
+        try:
+            parent = sim.getObjectParent(handle)
+            focus = parent if parent not in (-1, sim.handle_scene) else handle
+            sim.cameraFitToView(0, [focus], 1, 1.8)
+        except Exception:
+            pass  # La selección sigue siendo útil si la vista no admite ajuste.
+    return {"ok": True, "channel": channel, "path": signal["path"],
+            "message": f"{channel}: {signal['path']} seleccionado en CoppeliaSim."}
+
+
+def test_conveyor(sim, channel, *, duration=0.7, speed=60):
+    """Prueba breve de una cinta detenida; siempre devuelve su salida a cero."""
+    import time
+
+    signal = next((item for item in scene_inventory(sim)["signals"] if item["name"] == channel), None)
+    if not signal or signal.get("kind") != "conveyor" or signal.get("direction") != "output" or not channel.startswith("AO_"):
+        raise ValueError("Selecciona la salida AO de una cinta identificada.")
+    if not simulation_running(sim):
+        raise ValueError("Inicia la simulación para probar la cinta.")
+    current = sim.getFloatSignal(channel)
+    if current is not None and abs(float(current)) > 0.01:
+        raise ValueError("La cinta ya está recibiendo una orden. Detenla antes de probarla.")
+    sim.getObject(signal["path"])
+    sim.setFloatSignal(channel, float(speed))
+    try:
+        time.sleep(duration)
+    finally:
+        sim.setFloatSignal(channel, 0.0)
+    return {"ok": True, "channel": channel, "path": signal["path"],
+            "message": f"Prueba terminada: {channel} volvió a 0 mm/s."}

@@ -12,23 +12,84 @@ local CONFIG = {
         -- ['/conveyor[1]'] = {name = 'Salida'},
     },
     ignoredSensors = {
-        ['/LaserSensor'] = true, -- ya lo publica el Lua de ventosa como DI_00
+        ['/SensorSalida'] = true, -- uso interno: reposicion de cubos
+    },
+    recycle = {
+        exitSensor = '/SensorSalida',
+        entryPoint = '/PuntoEntrada', -- centro del cubo sobre la cinta
+        cubeNames = {'icubo[0]', 'icubo[1]', 'icubo[2]', 'icubo[3]'},
+        entryClearance = 0.075, -- metros entre centros antes de reponer otro cubo
     },
     externalSignals = {
         -- Senales atendidas por el Lua de ventosa; solo se publican sus etiquetas.
         {name = 'DO_00', label = 'Ventosa: activar', direction = 'output'},
-        {name = 'DI_00', label = 'Laser: detecta objeto', direction = 'input'},
         {name = 'DI_01', label = 'Ventosa: pieza sujeta', direction = 'input'},
     },
 }
 
 local conveyors = {}
 local lineSensors = {}
+local colorSensors = {}
 local MANIFEST = 'customData.CEAR_RoboLab'
 local DEVICE_TAG = 'customData.CEAR_RoboLab_io'
 local manifestRefreshes = 0
 local lastInventorySignature = nil
 local nextInventoryScan = 0
+local recycler = {sensor = nil, entry = nil, cubes = {}, rotations = {}}
+
+local function prepareRecycler()
+    recycler = {sensor = sim.getObject(CONFIG.recycle.exitSensor, {noError = true}),
+        entry = sim.getObject(CONFIG.recycle.entryPoint, {noError = true}),
+        cubes = {}, rotations = {}}
+    if not recycler.sensor or recycler.sensor == -1 or
+       not recycler.entry or recycler.entry == -1 then
+        sim.addLog(sim.verbosity_warnings,
+            '[CEAR] Reciclaje desactivado: falta SensorSalida o PuntoEntrada.')
+        return
+    end
+    local allowed = {}
+    for _, name in ipairs(CONFIG.recycle.cubeNames) do allowed[name] = true end
+    for _, handle in ipairs(sim.getObjectsInTree(sim.handle_scene, sim.object_shape_type, 0)) do
+        local path = sim.getObjectAlias(handle, 2)
+        local name = path:match('[^/]+$')
+        if allowed[name] and path:sub(1, 5) == '/icub' then
+            recycler.cubes[#recycler.cubes + 1] = handle
+            local pose = sim.getObjectPose(handle, sim.handle_world)
+            recycler.rotations[handle] = {pose[4], pose[5], pose[6], pose[7]}
+        end
+    end
+end
+
+local function recycleCubes()
+    if not recycler.sensor or recycler.sensor == -1 or
+       not recycler.entry or recycler.entry == -1 then return end
+    -- No mover un cubo mientras la ventosa sostiene una pieza.
+    if sim.getInt32Signal('DI_01') == 1 then return end
+    local entryPose = sim.getObjectPose(recycler.entry, sim.handle_world)
+    local clearance2 = CONFIG.recycle.entryClearance ^ 2
+    for _, cube in ipairs(recycler.cubes) do
+        if sim.checkProximitySensor(recycler.sensor, cube) == 1 then
+            local free = true
+            for _, other in ipairs(recycler.cubes) do
+                if other ~= cube then
+                    local position = sim.getObjectPosition(other, sim.handle_world)
+                    local dx = position[1] - entryPose[1]
+                    local dy = position[2] - entryPose[2]
+                    if dx * dx + dy * dy < clearance2 then
+                        free = false
+                        break
+                    end
+                end
+            end
+            if free then
+                local rotation = recycler.rotations[cube]
+                sim.setObjectPose(cube, {entryPose[1], entryPose[2], entryPose[3],
+                    rotation[1], rotation[2], rotation[3], rotation[4]}, sim.handle_world)
+            end
+            break -- reponer a lo sumo un cubo por paso de simulacion
+        end
+    end
+end
 
 local function readTag(handle)
     local packed = sim.getBufferProperty(handle, DEVICE_TAG, {noError = true})
@@ -38,14 +99,15 @@ local function readTag(handle)
 end
 
 local function saveTag(device)
-    local tag = {schema = 2, kind = device.kind,
+    local tag = {schema = 3, kind = device.kind,
         uid = sim.getStringProperty(device.handle, 'persistentUid'), name = device.name,
-        analog = device.analog, feedback = device.feedback, input = device.input}
+        analog = device.analog, input = device.input,
+        red = device.red, green = device.green, blue = device.blue}
     local old = readTag(device.handle)
     if old and old.schema == tag.schema and old.kind == tag.kind and
        old.uid == tag.uid and old.name == tag.name and
-       old.analog == tag.analog and old.feedback == tag.feedback and
-       old.input == tag.input then return end
+       old.analog == tag.analog and old.input == tag.input and
+       old.red == tag.red and old.green == tag.green and old.blue == tag.blue then return end
     sim.setBufferProperty(device.handle, DEVICE_TAG, sim.packTable(tag))
 end
 
@@ -78,6 +140,20 @@ local function discover()
                 kind = 'lineSensor', name = path:match('[^/]+$')}
         end
     end
+    for _, handle in ipairs(sim.getObjectsInTree(sim.handle_scene, sim.object_visionsensor_type, 0)) do
+        local path = sim.getObjectAlias(handle, 2)
+        local robotSensor = false
+        for _, robot in ipairs(CONFIG.robots) do
+            if path == robot.path or path:sub(1, #robot.path + 1) == robot.path .. '/' then
+                robotSensor = true
+                break
+            end
+        end
+        if not robotSensor and not CONFIG.ignoredSensors[path] then
+            devices[#devices + 1] = {handle = handle, path = path,
+                kind = 'colorSensor', name = path:match('[^/]+$')}
+        end
+    end
     table.sort(devices, function(a, b) return a.path < b.path end)
     return devices
 end
@@ -96,10 +172,10 @@ local function assign(devices)
     -- Reservar primero los canales anteriores: agregar un equipo no renumera los existentes.
     for _, device in ipairs(devices) do
         local tag = readTag(device.handle)
-        if tag and (tag.schema == 1 or tag.schema == 2) and tag.kind == device.kind and
+        if tag and (tag.schema == 1 or tag.schema == 2 or tag.schema == 3) and tag.kind == device.kind and
            tag.uid == sim.getStringProperty(device.handle, 'persistentUid') then
             if device.kind == 'conveyor' then
-                -- Migrar etiquetas antiguas DO/DI: conservar DI, reemplazar DO por AO.
+                -- Conservar AO; retirar la antigua DI de marcha si existe.
                 if type(tag.analog) == 'string' and tag.analog:match('^AO_%d%d$') and
                    not used[tag.analog] then
                     device.analog = tag.analog
@@ -107,18 +183,25 @@ local function assign(devices)
                 end
                 if type(tag.feedback) == 'string' and tag.feedback:match('^DI_%d%d$') and
                    not used[tag.feedback] then
-                    device.feedback = tag.feedback
-                    used[tag.feedback] = true
+                    sim.clearInt32Signal(tag.feedback)
                 end
                 if type(tag.command) == 'string' and tag.command:match('^DO_%d%d$') and
                    not used[tag.command] then
                     sim.clearInt32Signal(tag.command)
                 end
-            else
+            elseif device.kind == 'lineSensor' then
                 if type(tag.input) == 'string' and tag.input:match('^DI_%d%d$') and
                    not used[tag.input] then
                     device.input = tag.input
                     used[tag.input] = true
+                end
+            elseif device.kind == 'colorSensor' then
+                for _, channel in ipairs({'red', 'green', 'blue'}) do
+                    local name = tag[channel]
+                    if type(name) == 'string' and name:match('^AI_%d%d$') and not used[name] then
+                        device[channel] = name
+                        used[name] = true
+                    end
                 end
             end
             device.name = tag.name or device.name
@@ -127,12 +210,16 @@ local function assign(devices)
     for _, device in ipairs(devices) do
         if device.kind == 'conveyor' then
             device.analog = device.analog or nextSignal(used, 'AO')
-            device.feedback = device.feedback or nextSignal(used, 'DI')
             device.name = device.override.name or device.name
             conveyors[#conveyors + 1] = device
-        else
+        elseif device.kind == 'lineSensor' then
             device.input = device.input or nextSignal(used, 'DI')
             lineSensors[#lineSensors + 1] = device
+        else
+            device.red = device.red or nextSignal(used, 'AI')
+            device.green = device.green or nextSignal(used, 'AI')
+            device.blue = device.blue or nextSignal(used, 'AI')
+            colorSensors[#colorSensors + 1] = device
         end
         saveTag(device)
     end
@@ -174,9 +261,6 @@ local function publishManifest()
         addUnique(manifest.signals,
             {name = conveyor.analog, label = conveyor.name .. ': velocidad (mm/s)',
              direction = 'output', unit = 'mm/s', source = 'scene_io'}, 'name')
-        addUnique(manifest.signals,
-            {name = conveyor.feedback, label = conveyor.name .. ': en movimiento',
-             direction = 'input', source = 'scene_io'}, 'name')
     end
     for _, sensor in ipairs(lineSensors) do
         addUnique(manifest.sensors,
@@ -184,6 +268,15 @@ local function publishManifest()
         addUnique(manifest.signals,
             {name = sensor.input, label = sensor.name .. ': detecta pieza',
              direction = 'input', source = 'scene_io'}, 'name')
+    end
+    for _, sensor in ipairs(colorSensors) do
+        addUnique(manifest.sensors,
+            {path = sensor.path, name = sensor.name, source = 'scene_io'}, 'path')
+        for _, channel in ipairs({{'red', 'rojo'}, {'green', 'verde'}, {'blue', 'azul'}}) do
+            addUnique(manifest.signals,
+                {name = sensor[channel[1]], label = sensor.name .. ': promedio ' .. channel[2],
+                 direction = 'input', source = 'scene_io'}, 'name')
+        end
     end
     sim.setBufferProperty(sim.handle_scene, MANIFEST, sim.packTable(manifest))
 end
@@ -197,27 +290,38 @@ local function refreshInventory(force)
     end
     local signature = table.concat(names, '|')
     if not force and signature == lastInventorySignature then return end
-    local oldConveyors, oldSensors = conveyors, lineSensors
-    conveyors, lineSensors = {}, {}
+    local oldConveyors, oldSensors, oldColorSensors = conveyors, lineSensors, colorSensors
+    conveyors, lineSensors, colorSensors = {}, {}, {}
     assign(devices)
     local current = {}
     for _, device in ipairs(conveyors) do
-        current[device.analog], current[device.feedback] = true, true
+        current[device.analog] = true
     end
     for _, device in ipairs(lineSensors) do current[device.input] = true end
+    for _, device in ipairs(colorSensors) do
+        current[device.red], current[device.green], current[device.blue] = true, true, true
+    end
     for _, device in ipairs(oldConveyors) do
         if not current[device.analog] then sim.clearFloatSignal(device.analog) end
-        if not current[device.feedback] then sim.clearInt32Signal(device.feedback) end
     end
     for _, device in ipairs(oldSensors) do
         if not current[device.input] then sim.clearInt32Signal(device.input) end
     end
+    for _, device in ipairs(oldColorSensors) do
+        for _, channel in ipairs({device.red, device.green, device.blue}) do
+            if not current[channel] then sim.clearFloatSignal(channel) end
+        end
+    end
     if sim.getSimulationState() == sim.simulation_stopped then
         for _, device in ipairs(conveyors) do
             sim.setFloatSignal(device.analog, 0)
-            sim.setInt32Signal(device.feedback, 0)
         end
         for _, device in ipairs(lineSensors) do sim.setInt32Signal(device.input, 0) end
+        for _, device in ipairs(colorSensors) do
+            sim.setFloatSignal(device.red, 0)
+            sim.setFloatSignal(device.green, 0)
+            sim.setFloatSignal(device.blue, 0)
+        end
     end
     publishManifest()
     lastInventorySignature = signature
@@ -226,11 +330,15 @@ end
 local function resetOutputs()
     for _, conveyor in ipairs(conveyors) do
         sim.setFloatSignal(conveyor.analog, 0)
-        sim.setInt32Signal(conveyor.feedback, 0)
         sim.writeCustomTableData(conveyor.handle, '__ctrl__', {vel = 0})
     end
     for _, sensor in ipairs(lineSensors) do
         sim.setInt32Signal(sensor.input, 0)
+    end
+    for _, sensor in ipairs(colorSensors) do
+        sim.setFloatSignal(sensor.red, 0)
+        sim.setFloatSignal(sensor.green, 0)
+        sim.setFloatSignal(sensor.blue, 0)
     end
 end
 
@@ -266,6 +374,7 @@ function sysCall_beforeSimulation()
     refreshInventory(true)
     resetOutputs()
     synchronizeRobotTargets()
+    prepareRecycler()
     manifestRefreshes = 2
 end
 
@@ -279,15 +388,39 @@ function sysCall_actuation()
     end
 end
 
-function sysCall_sensing()
-    for _, conveyor in ipairs(conveyors) do
-        local state = sim.readCustomTableData(conveyor.handle, '__state__')
-        local velocity = type(state) == 'table' and tonumber(state.vel) or 0
-        sim.setInt32Signal(conveyor.feedback, math.abs(velocity or 0) > 0.001 and 1 or 0)
+local function averageCenterRgb(handle)
+    local ok, image, resolution = pcall(sim.getVisionSensorImg, handle)
+    if not ok or not image or type(resolution) ~= 'table' then
+        return 0, 0, 0
     end
+    local unpacked, pixels = pcall(sim.unpackUInt8Table, image)
+    if not unpacked or type(pixels) ~= 'table' then return 0, 0, 0 end
+    local width, height = resolution[1], resolution[2]
+    if not width or not height or #pixels < width * height * 3 then return 0, 0, 0 end
+    local x0, x1 = math.floor(width / 4), math.ceil(width * 3 / 4) - 1
+    local y0, y1 = math.floor(height / 4), math.ceil(height * 3 / 4) - 1
+    local red, green, blue, count = 0, 0, 0, 0
+    for y = y0, y1 do
+        for x = x0, x1 do
+            local i = (y * width + x) * 3 + 1
+            local r, g, b = pixels[i], pixels[i + 1], pixels[i + 2]
+            red, green, blue, count = red + r, green + g, blue + b, count + 1
+        end
+    end
+    return red / count, green / count, blue / count
+end
+
+function sysCall_sensing()
+    recycleCubes()
     for _, sensor in ipairs(lineSensors) do
         local detected = sim.readProximitySensor(sensor.handle)
         sim.setInt32Signal(sensor.input, detected == 1 and 1 or 0)
+    end
+    for _, sensor in ipairs(colorSensors) do
+        local red, green, blue = averageCenterRgb(sensor.handle)
+        sim.setFloatSignal(sensor.red, red)
+        sim.setFloatSignal(sensor.green, green)
+        sim.setFloatSignal(sensor.blue, blue)
     end
     -- Repetir brevemente tras init por si el Lua de ventosa publico despues.
     if manifestRefreshes > 0 then
@@ -304,9 +437,13 @@ function sysCall_afterSimulation()
     for _, conveyor in ipairs(conveyors) do
         sim.writeCustomTableData(conveyor.handle, '__ctrl__', {vel = 0})
         sim.setFloatSignal(conveyor.analog, 0)
-        sim.setInt32Signal(conveyor.feedback, 0)
     end
     for _, sensor in ipairs(lineSensors) do
         sim.setInt32Signal(sensor.input, 0)
+    end
+    for _, sensor in ipairs(colorSensors) do
+        sim.setFloatSignal(sensor.red, 0)
+        sim.setFloatSignal(sensor.green, 0)
+        sim.setFloatSignal(sensor.blue, 0)
     end
 end

@@ -18,11 +18,13 @@
   const inventoryItems = document.getElementById("sceneInventoryItems");
   const inventoryToggle = document.getElementById("sceneInventoryToggle");
   const inventoryDialog = document.getElementById("sceneInventoryDialog");
+  let equipmentNotice;
   const tcpSensorSelect = document.getElementById("tcpSensorSelect");
   const tcpLiveStatus = document.getElementById("tcpLiveStatus");
   const tcpOutputs = ["X", "Y", "Z", "Rx", "Ry", "Rz"].map(axis => document.getElementById(`tcpLive${axis}`));
   let inventoryConnected = false;
   let inventoryBusy = false;
+  let equipmentBusy = false;
   let inventoryPending = null;
   let inventorySignature = "";
   let sensorSignature = "";
@@ -66,6 +68,7 @@
     const suffix = match?.[1] || match?.[2] || "";
     const number = suffix ? ` ${suffix}` : "";
     if (/conveyor|cinta|belt/i.test(name)) return `Cinta transportadora${number}`;
+    if (/vision|color/i.test(name)) return `Sensor de color${number}`;
     if (/laser|láser/i.test(name)) return `Sensor láser${number}`;
     if (/suction|ventosa/i.test(name)) return `Ventosa${number}`;
     if (/line.?sensor|sensor.?linea|sensor.?línea/i.test(name)) return `Sensor de línea${number}`;
@@ -122,7 +125,30 @@
       }
       const state = document.createElement("strong");
       state.className = "scene-signal-value";
-      row.append(details, state);
+      const controls = document.createElement("div");
+      controls.className = "scene-signal-controls";
+      controls.append(state);
+      if (signal.path) {
+        const identify = document.createElement("button");
+        identify.type = "button";
+        identify.className = "scene-equipment-action";
+        identify.dataset.equipmentAction = "identifyEquipment";
+        identify.dataset.channel = signal.name;
+        identify.textContent = "Ubicar";
+        identify.title = `Seleccionar ${signal.path} en CoppeliaSim`;
+        controls.append(identify);
+        if (signal.kind === "conveyor" && signal.direction === "output" && signal.name.startsWith("AO_")) {
+          const test = document.createElement("button");
+          test.type = "button";
+          test.className = "scene-equipment-action";
+          test.dataset.equipmentAction = "testConveyor";
+          test.dataset.channel = signal.name;
+          test.textContent = "Probar";
+          test.title = "Mover esta cinta 0,7 s a 60 mm/s y detenerla";
+          controls.append(test);
+        }
+      }
+      row.append(details, controls);
       card.append(row);
     }
     return card;
@@ -195,7 +221,7 @@
     const sensors = result.sensors || [];
     syncTcpSensors(sensors);
     const signals = result.signals || [];
-    const signature = JSON.stringify([robots, sensors, signals.map(({ name, label, direction, unit }) => ({ name, label, direction, unit }))]);
+    const signature = JSON.stringify([robots, sensors, signals.map(({ name, label, direction, unit, path, kind }) => ({ name, label, direction, unit, path, kind }))]);
     if (signature !== inventorySignature) {
       inventoryItems.replaceChildren();
       inventoryItems.append(signalCard("Entradas", signals.filter(signal => signal.direction === "input"), "La escena no declaró entradas."));
@@ -203,6 +229,11 @@
       inventoryItems.append(inventoryCard("Robot", robots.length
         ? robots.map(robot => ({ label: `${robot.name} · ${robot.joints.length} ejes`, value: robot.path }))
         : [{ label: "Sin robot", value: "—" }]));
+      equipmentNotice = document.createElement("p");
+      equipmentNotice.className = "scene-equipment-notice";
+      equipmentNotice.setAttribute("role", "status");
+      equipmentNotice.textContent = "Ubicar selecciona el equipo en CoppeliaSim. Probar mueve una cinta brevemente y la detiene.";
+      inventoryItems.prepend(equipmentNotice);
       inventorySignature = signature;
     }
     const byName = new Map(signals.map(signal => [signal.name, signal]));
@@ -211,10 +242,11 @@
       const value = signal?.value;
       const state = row.querySelector(".scene-signal-value");
       const nextText = value == null ? "Sin dato" : value === 0 ? "0 · Inactivo" : value === 1 ? "1 · Activo" : String(value);
-      const displayText = signal?.unit && value != null
-        ? `${Number(value).toLocaleString("es-CL")} ${signal.unit}` : nextText;
+      const analog = /^(AI|AO)_/.test(signal?.name || "");
+      const displayText = analog && value != null
+        ? `${Number(value).toLocaleString("es-CL", { maximumFractionDigits: 1 })}${signal.unit ? ` ${signal.unit}` : ""}` : nextText;
       if (state.textContent !== displayText) state.textContent = displayText;
-      state.dataset.state = value == null ? "unknown" : signal?.unit ? "analog" : value === 0 ? "off" : value === 1 ? "on" : "other";
+      state.dataset.state = value == null ? "unknown" : analog ? "analog" : value === 0 ? "off" : value === 1 ? "on" : "other";
     }
     const robotName = robots.length === 1 ? robots[0].name : `${robots.length} robots`;
     const nextStatus = `${robotName} · ${result.paused ? "Pausada" : result.running ? "En marcha" : "Detenida"}`;
@@ -265,8 +297,33 @@
   inventoryDialog.addEventListener("click", event => {
     if (event.target === inventoryDialog) inventoryDialog.close();
   });
+  inventoryItems.addEventListener("click", async event => {
+    const button = event.target.closest("[data-equipment-action]");
+    if (!button || equipmentBusy) return;
+    equipmentBusy = true;
+    for (const control of inventoryItems.querySelectorAll("[data-equipment-action]")) control.disabled = true;
+    if (equipmentNotice) {
+      equipmentNotice.textContent = button.dataset.equipmentAction === "testConveyor" ? "Probando cinta…" : "Ubicando equipo…";
+      equipmentNotice.classList.remove("error");
+    }
+    try {
+      const result = await PythonRuntime.coppelia({ ...connection(), action: button.dataset.equipmentAction, channel: button.dataset.channel });
+      if (!result.ok) throw new Error(result.message || "No se pudo identificar el equipo.");
+      if (equipmentNotice) equipmentNotice.textContent = result.message;
+      requestInventory(true);
+    } catch (error) {
+      if (equipmentNotice) {
+        equipmentNotice.textContent = error.message || String(error);
+        equipmentNotice.classList.add("error");
+      }
+    } finally {
+      equipmentBusy = false;
+      for (const control of inventoryItems.querySelectorAll("[data-equipment-action]")) control.disabled = false;
+    }
+  });
   requestInventory(true);
   setInterval(() => requestInventory(true), 5000);
+  setInterval(() => { if (inventoryDialog.open) requestInventory(true); }, 1000);
 
   function message(text, error = false) {
     status.textContent = text;

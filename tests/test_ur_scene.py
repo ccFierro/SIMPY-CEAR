@@ -56,6 +56,9 @@ class FakeSim:
     def setFloatSignal(self, name, value):
         self.signals[name] = value
 
+    def getFloatSignal(self, name):
+        return self.signals.get(name)
+
 
 class RobotSceneTests(unittest.TestCase):
     def make_robot(self):
@@ -78,6 +81,13 @@ class RobotSceneTests(unittest.TestCase):
             robot.set_analog_output("AO_00", 501)
         with self.assertRaisesRegex(ValueError, "AO_XX"):
             robot.set_analog_output("DO_01", 80)
+
+    def test_reads_average_color_as_analog_inputs(self):
+        robot = self.make_robot()
+        robot.sim.signals.update({"AI_00": 136.0, "AI_01": 64.0, "AI_02": 64.0})
+        self.assertEqual([robot.read_analog_input(f"AI_0{i}") for i in range(3)], [136.0, 64.0, 64.0])
+        with self.assertRaisesRegex(ValueError, "AI_XX"):
+            robot.read_analog_input("DI_04")
 
     def test_dh_api_is_available_in_english_and_legacy_names(self):
         robot = self.make_robot()

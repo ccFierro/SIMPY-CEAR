@@ -82,6 +82,7 @@
     ] },
     { id: "senales", label: "Señales", entries: [
       ["Leer entrada digital", "robot.read_input('DI_01')", "Lee 0 o 1. Consulta «Señales y equipos» para conocer las direcciones de la escena.", "sujeto = robot.read_input('DI_01')"],
+      ["Leer color promedio", "robot.read_analog_input('AI_00')", "Lee un componente RGB promedio entre 0 y 255 del sensor de color. Consulta los canales rojo, verde y azul en «Señales y equipos».", "rojo = robot.read_analog_input('AI_00')"],
       ["Activar salida digital", "robot.set_output('DO_00', True)", "Activa o desactiva una salida, por ejemplo la ventosa.", "robot.set_output('DO_00', True)"],
       ["Esperar entrada", "robot.wait_input('DI_01', 1)", "Espera un valor hasta el tiempo límite; si no llega, genera un error de espera.", "robot.wait_input('DI_01', 1)"],
       ["Velocidad de cinta", "robot.set_analog_output('AO_00', mm_s)", "Velocidad firmada en mm/s: positiva, negativa o cero para detener.", "robot.set_analog_output('AO_00', 80)"]
