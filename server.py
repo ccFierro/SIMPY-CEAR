@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parent
 SERVER_SOURCE_HASH = hashlib.sha256((ROOT / "server.py").read_bytes()).hexdigest()
 PYTHON_DIR = ROOT / "python"
 sys.path.insert(0, str(PYTHON_DIR))
-ASSETS = {"index.html", "styles.css", "storage.js", "editor.js", "execution.js", "workspace.js", "visual-flow.js", "python-runtime.js", "bootstrap.js", "app.js", "coppelia-panel.js", "notifications.js", "pose-marker.js", "robot-jog.js", "python-reference.js"}
+ASSETS = {"index.html", "styles.css", "storage.js", "editor.js", "execution.js", "workspace.js", "visual-flow.js", "python-runtime.js", "bootstrap.js", "app.js", "coppelia-panel.js", "notifications.js", "pose-marker.js", "robot-jog.js", "point-preview.js", "python-reference.js"}
 CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 
@@ -242,7 +242,7 @@ def coppelia_action(data):
                                stderr=subprocess.PIPE, text=True, encoding="utf-8",
                                creationflags=CREATE_NO_WINDOW)
     try:
-        stdout, stderr = process.communicate(json.dumps(data), timeout=130 if data.get("action") in ("markerMoveTcp", "robotJogAlignAxis") else 20)
+        stdout, stderr = process.communicate(json.dumps(data), timeout=130 if data.get("action") in ("markerMoveTcp", "robotJogAlignAxis", "robotJogMovePose") else 45 if data.get("action") == "previewPoints" else 20)
     except subprocess.TimeoutExpired as error:
         if os.name == "nt":
             subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"],
@@ -355,7 +355,7 @@ def handler_for(app):
                     self.reply(200, {"ok": True})
                     return
                 if endpoint == "/api/coppelia":
-                    if data.get("action") not in ("probe", "stop", "start", "scene", "inventory", "tcpPose", "identifyEquipment", "testConveyor", "jogJoint", "jogTarget", "markerCreate", "markerRead", "markerSet", "markerJog", "markerAlignTcp", "markerMoveTcp", "markerDelete", "robotJogStart", "robotJogHeartbeat", "robotJogStop", "robotJogRead", "robotJogAlignAxis", "robotJogAxesShow", "robotJogAxesHide"):
+                    if data.get("action") not in ("probe", "stop", "start", "scene", "inventory", "tcpPose", "identifyEquipment", "testConveyor", "jogJoint", "jogTarget", "markerCreate", "markerRead", "markerSet", "markerJog", "markerAlignTcp", "markerMoveTcp", "robotJogAxesShow", "robotJogAxesHide", "robotJogStart", "robotJogHeartbeat", "robotJogStop", "robotJogRead", "robotJogAlignAxis", "robotJogMovePose", "previewPoints"):
                         raise ValueError("Acción de CoppeliaSim inválida")
                     self.reply(200, coppelia_action(data))
                     return

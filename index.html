@@ -119,6 +119,7 @@
               <button id="stopExecution" type="button" hidden>Detener</button>
               <button id="findCode" type="button" title="Buscar en el cuaderno (Ctrl+F)">Buscar</button>
               <button id="resetNotebook" type="button" title="Reinicia el proceso Python y limpia sus variables">Reiniciar Python</button>
+              <label class="point-preview-toggle" title="Mostrar en CoppeliaSim los puntos p[...] escritos en el cuaderno"><span>Puntos</span><input id="showCodePoints" type="checkbox" checked aria-label="Mostrar puntos del cuaderno en CoppeliaSim" /><span class="point-preview-track" aria-hidden="true"></span></label>
             </div>
           </div>
           <div id="runtimeNotice" class="runtime-notice" role="status" hidden></div>
@@ -357,7 +358,7 @@
       </div>
       <button id="poseMarkerApply" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"/><path d="M12 2v5m0 10v5M2 12h5m10 0h5"/></svg>Aplicar pose al marcador</button>
       <code id="poseMarkerCode" class="pose-marker-code">p[0, 0, 0.35, 0, 0, 0]</code>
-      <div class="dialog-actions pose-marker-secondary"><button id="poseMarkerCopy" type="button">Copiar pose</button><button id="poseMarkerInsert" type="button">Insertar en celda</button><button id="poseMarkerDelete" type="button">Eliminar marcador</button></div>
+      <div class="dialog-actions pose-marker-secondary"><button id="poseMarkerCopy" type="button">Copiar pose</button><button id="poseMarkerInsert" type="button">Agregar punto a celda</button><button id="poseMarkerDelete" type="button">Eliminar marcador</button></div>
       <p id="poseMarkerStatus" role="status" aria-live="polite">Crea un marcador para comenzar.</p>
       </div>
     </dialog>
@@ -381,18 +382,19 @@
           <button class="robot-jog-align" data-align-axis="y" type="button" title="Alinear el eje Y del TCP con +Y World">Y ↑ <span>+Y World</span></button>
           <button class="robot-jog-align" data-align-axis="z" type="button" title="Alinear el eje Z del TCP hacia abajo">Z ↓ <span>Hacia abajo</span></button>
         </div>
-        <h3>Posición TCP · World · metros</h3>
+        <h3>Destino TCP · World · metros</h3>
         <div class="pose-marker-grid">
-          <label class="pose-axis-field pose-axis-x"><span>X</span><input id="robotJogX" aria-label="Posición X del TCP" readonly /></label>
-          <label class="pose-axis-field pose-axis-y"><span>Y</span><input id="robotJogY" aria-label="Posición Y del TCP" readonly /></label>
-          <label class="pose-axis-field pose-axis-z"><span>Z</span><input id="robotJogZ" aria-label="Posición Z del TCP" readonly /></label>
+          <label class="pose-axis-field pose-axis-x"><span>X</span><input id="robotJogX" type="number" step="0.001" aria-label="Destino X del TCP" /></label>
+          <label class="pose-axis-field pose-axis-y"><span>Y</span><input id="robotJogY" type="number" step="0.001" aria-label="Destino Y del TCP" /></label>
+          <label class="pose-axis-field pose-axis-z"><span>Z</span><input id="robotJogZ" type="number" step="0.001" aria-label="Destino Z del TCP" /></label>
         </div>
-        <h3>Orientación TCP · vector de rotación en radianes</h3>
+        <h3>Orientación destino · vector de rotación en radianes</h3>
         <div class="pose-marker-grid">
-          <label class="pose-axis-field pose-axis-x"><span>rx</span><input id="robotJogRx" aria-label="Orientación RX del TCP" readonly /></label>
-          <label class="pose-axis-field pose-axis-y"><span>ry</span><input id="robotJogRy" aria-label="Orientación RY del TCP" readonly /></label>
-          <label class="pose-axis-field pose-axis-z"><span>rz</span><input id="robotJogRz" aria-label="Orientación RZ del TCP" readonly /></label>
+          <label class="pose-axis-field pose-axis-x"><span>rx</span><input id="robotJogRx" type="number" step="0.01" aria-label="Destino RX del TCP" /></label>
+          <label class="pose-axis-field pose-axis-y"><span>ry</span><input id="robotJogRy" type="number" step="0.01" aria-label="Destino RY del TCP" /></label>
+          <label class="pose-axis-field pose-axis-z"><span>rz</span><input id="robotJogRz" type="number" step="0.01" aria-label="Destino RZ del TCP" /></label>
         </div>
+        <div class="robot-jog-destination-actions"><button id="robotJogMovePose" type="button">Mover robot al destino</button><button id="robotJogSavePoint" type="button">Agregar punto a celda</button></div>
         <p id="robotJogStatus" role="status" aria-live="polite">Selecciona el TCP para comenzar.</p>
       </div>
     </dialog>

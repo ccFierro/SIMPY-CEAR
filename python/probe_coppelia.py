@@ -15,6 +15,7 @@ from roboticalab.manual_control import jog_joint, jog_target, scene_snapshot, si
 from roboticalab.scene_inventory import scene_inventory, sensor_pose, identify_equipment, test_conveyor
 from roboticalab.pose_marker import marker_action
 from roboticalab.cartesian_jog import cartesian_jog_action
+from roboticalab.point_markers import poses_from_sources, reconcile_named_points
 
 client = None
 try:
@@ -45,8 +46,15 @@ try:
                             data.get("step"), data.get("frame", "world"))
     elif action in ("markerCreate", "markerRead", "markerSet", "markerJog", "markerAlignTcp", "markerMoveTcp", "markerDelete"):
         result = marker_action(sim, action, data, client)
-    elif action in ("robotJogStart", "robotJogHeartbeat", "robotJogStop", "robotJogRead", "robotJogAlignAxis", "robotJogAxesShow", "robotJogAxesHide"):
+    elif action in ("robotJogStart", "robotJogHeartbeat", "robotJogStop", "robotJogRead", "robotJogAlignAxis", "robotJogMovePose", "robotJogAxesShow", "robotJogAxesHide"):
         result = cartesian_jog_action(sim, client, action, data)
+    elif action == "previewPoints":
+        sources = data.get("sources", [])
+        if (not isinstance(sources, list) or len(sources) > 200 or
+                any(not isinstance(source, str) for source in sources) or
+                sum(len(source) for source in sources) > 500_000):
+            raise ValueError("El cuaderno supera el límite de previsualización de puntos.")
+        result = {"ok": True, **reconcile_named_points(sim, poses_from_sources(sources) if data.get("visible") else {})}
     else:
         result = {"ok": True, "message": "CoppeliaSim conectado", "state": sim.getSimulationState(),
                   "running": simulation_running(sim), "version": sim.getInt32Param(sim.intparam_program_version)}

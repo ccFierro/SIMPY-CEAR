@@ -33,6 +33,38 @@
     if (event.target.matches?.(".cell-editor")) lastEditor = event.target;
   });
 
+  function rememberEditor() {
+    lastEditor = document.querySelector(".code-cell.active .cell-editor") || lastEditor;
+  }
+
+  function appendPoint(values, sourceDialog) {
+    const editor = lastEditor?.isConnected ? lastEditor : null;
+    if (!editor || editor.readOnly) throw new Error("Selecciona una celda editable antes de agregar el punto.");
+    if (values.length !== 6 || values.some(value => !Number.isFinite(value))) {
+      throw new Error("Completa las seis coordenadas con números finitos.");
+    }
+    let highest = 0;
+    for (const cellEditor of document.querySelectorAll(".cell-editor")) {
+      for (const match of cellEditor.value.matchAll(/^\s*target_(\d+)\s*=/gm)) {
+        highest = Math.max(highest, Number(match[1]));
+      }
+    }
+    const name = `target_${highest + 1}`;
+    const pose = values.map(value => String(Number(value.toFixed(6)))).join(", ");
+    const prefix = editor.value && !editor.value.endsWith("\n") ? "\n" : "";
+    sourceDialog.close();
+    const cell = editor.closest(".code-cell");
+    if (cell?.classList.contains("is-collapsed")) cell.querySelector(".cell-fold")?.click();
+    RoboticaEditor.replace(editor, { start: editor.value.length, end: editor.value.length,
+      text: `${prefix}${name} = p[${pose}]` });
+    return name;
+  }
+
+  window.RoboticaPoseInsert = { rememberEditor, appendPoint };
+  for (const id of ["poseMarkerOpen", "robotJogOpen"]) {
+    document.getElementById(id).addEventListener("pointerdown", rememberEditor);
+  }
+
   function settings() {
     return {
       host: document.getElementById("coppeliaHost").value.trim(),
@@ -82,7 +114,7 @@
   }
 
   document.getElementById("poseMarkerOpen").addEventListener("click", () => {
-    lastEditor = document.querySelector(".code-cell.active .cell-editor") || lastEditor;
+    rememberEditor();
     currentCode = "";
     code.textContent = "Pose pendiente de leer";
     dialog.showModal();
@@ -143,15 +175,10 @@
   });
   document.getElementById("poseMarkerInsert").addEventListener("click", () => {
     if (!currentCode) return;
-    const editor = lastEditor?.isConnected ? lastEditor : document.querySelector(".cell-editor");
-    if (!editor || editor.readOnly) {
-      reportError("Selecciona una celda editable antes de insertar la pose.");
-      return;
+    try {
+      appendPoint(fields.map(field => Number(field.value)), dialog);
+    } catch (error) {
+      reportError(error.message);
     }
-    const start = editor.selectionStart;
-    const end = editor.selectionEnd;
-    RoboticaEditor.replace(editor, { start, end, text: currentCode });
-    dialog.close();
-    editor.focus();
   });
 })();

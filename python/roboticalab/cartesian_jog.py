@@ -4,7 +4,7 @@ import math
 import uuid
 
 from .scene_inventory import scene_inventory, sensor_pose
-from .ur_scene import RobotUR
+from .ur_scene import Pose, RobotUR
 
 
 COMMAND = "SIMPY_motion_command"
@@ -130,17 +130,30 @@ def cartesian_jog_action(sim, client, action, data):
         result["state"] = state
         return result
 
-    if action in ("robotJogRead", "robotJogAlignAxis"):
-        if action == "robotJogAlignAxis":
+    if action in ("robotJogRead", "robotJogAlignAxis", "robotJogMovePose"):
+        if action in ("robotJogAlignAxis", "robotJogMovePose"):
             _capability(sim)
             robot = _robot(sim, client, data.get("sensorPath"))
-            axis = data.get("axis")
-            if axis == "z":
-                robot.align_z(1)
-            elif axis in ("x", "y"):
-                robot.align_axis(axis)
-            else:
-                raise ValueError("Selecciona un eje X, Y o Z.")
+            try:
+                if action == "robotJogMovePose":
+                    values = data.get("pose")
+                    if (not isinstance(values, list) or len(values) != 6 or
+                            any(isinstance(value, bool) or not isinstance(value, (int, float)) or
+                                not math.isfinite(value) for value in values) or
+                            any(abs(value) > 10 for value in values[:3])):
+                        raise ValueError("Ingresa X, Y, Z y rx, ry, rz finitos; la posición debe estar entre -10 y 10 m.")
+                    robot.movej(Pose(values))
+                else:
+                    axis = data.get("axis")
+                    if axis == "z":
+                        robot.align_z(1)
+                    elif axis in ("x", "y"):
+                        robot.align_axis(axis)
+                    else:
+                        raise ValueError("Selecciona un eje X, Y o Z.")
+            finally:
+                if robot._entorno is not None:
+                    robot._ik.eraseEnvironment(robot._entorno)
         return sensor_pose(sim, data.get("sensorPath"))
 
     raise ValueError("Acción cartesiana desconocida.")

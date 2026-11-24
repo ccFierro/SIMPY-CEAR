@@ -3,6 +3,7 @@
 import ast
 import hashlib
 import math
+import operator
 import re
 
 from .ur_scene import Pose
@@ -13,6 +14,8 @@ TAG = "customData.CEAR_RoboLab_named_point"
 DRAWINGS = "customData.CEAR_RoboLab_named_point_drawings"
 DIMENSIONS = "customData.CEAR_RoboLab_named_point_dimensions"
 MAX_POINTS = 100
+SCALAR_OPERATIONS = {ast.Add: operator.add, ast.Sub: operator.sub,
+                     ast.Mult: operator.mul, ast.Div: operator.truediv}
 
 
 def _alias(name):
@@ -144,10 +147,83 @@ def assigned_names(source):
     return names
 
 
+def _static_number(node, scalars):
+    if isinstance(node, ast.Constant) and type(node.value) in (int, float):
+        value = float(node.value)
+    elif isinstance(node, ast.Name) and node.id in scalars:
+        value = scalars[node.id]
+    elif isinstance(node, ast.Name) and node.id == "pi":
+        value = math.pi
+    elif isinstance(node, ast.Attribute) and node.attr == "pi" and isinstance(node.value, ast.Name) and node.value.id in ("np", "math"):
+        value = math.pi
+    elif isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
+        value = _static_number(node.operand, scalars) * (-1 if isinstance(node.op, ast.USub) else 1)
+    elif isinstance(node, ast.BinOp) and type(node.op) in SCALAR_OPERATIONS:
+        value = SCALAR_OPERATIONS[type(node.op)](_static_number(node.left, scalars),
+                                                 _static_number(node.right, scalars))
+    elif (isinstance(node, ast.Call) and len(node.args) == 1 and not node.keywords and
+          isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name) and
+          node.func.value.id in ("np", "math") and node.func.attr in ("radians", "deg2rad")):
+        value = math.radians(_static_number(node.args[0], scalars))
+    else:
+        raise ValueError("La coordenada depende de código que aún no se ha ejecutado.")
+    if not math.isfinite(value) or abs(value) > 1e6:
+        raise ValueError("La coordenada está fuera de rango.")
+    return value
+
+
+def _static_pose(node, scalars):
+    if not (isinstance(node, ast.Subscript) and isinstance(node.value, ast.Name) and node.value.id == "p"):
+        return None
+    items = node.slice.elts if isinstance(node.slice, (ast.Tuple, ast.List)) else [node.slice]
+    if len(items) not in (3, 6):
+        raise ValueError("p[...] necesita tres o seis coordenadas.")
+    return Pose([_static_number(item, scalars) for item in items])
+
+
+def poses_from_sources(sources):
+    """Lee asignaciones simples del cuaderno sin ejecutar Python del estudiante."""
+    poses, scalars = {}, {}
+    for source in sources:
+        if not isinstance(source, str):
+            continue
+        try:
+            statements = ast.parse(source).body
+        except SyntaxError:
+            statements = []
+            for line in source.splitlines():
+                try:
+                    statements.extend(ast.parse(line).body)
+                except SyntaxError:
+                    continue
+        for statement in statements:
+            if isinstance(statement, ast.Assign) and len(statement.targets) == 1 and isinstance(statement.targets[0], ast.Name):
+                name, expression = statement.targets[0].id, statement.value
+            elif isinstance(statement, ast.AnnAssign) and isinstance(statement.target, ast.Name):
+                name, expression = statement.target.id, statement.value
+            else:
+                continue
+            poses.pop(name, None)
+            scalars.pop(name, None)
+            if expression is None:
+                continue
+            try:
+                pose = _static_pose(expression, scalars)
+                if pose is not None:
+                    if not name.startswith("_") and all(abs(value) <= 10 for value in pose[:3]):
+                        poses[name] = pose
+                else:
+                    scalars[name] = _static_number(expression, scalars)
+            except (ValueError, OverflowError, ZeroDivisionError):
+                continue
+    return dict(list(poses.items())[:MAX_POINTS])
+
+
 def reconcile_named_points(sim, values):
     """Retira puntos antiguos o cambiados y coloca la última versión ejecutada."""
     current = named_poses(values)
     removed = []
+    pending = dict(current)
     for handle in sim.getObjectsInTree(sim.handle_scene, sim.object_dummy_type, 0):
         tagged = sim.getBufferProperty(handle, TAG, {"noError": True})
         if not tagged:
@@ -170,4 +246,6 @@ def reconcile_named_points(sim, values):
             _remove_axes(sim, handle)
             sim.removeObjects([handle])
             removed.append(name)
-    return {"deleted": removed, "markers": sync_named_points(sim, current)}
+        else:
+            pending.pop(name, None)
+    return {"deleted": removed, "markers": sync_named_points(sim, pending), "visible": len(current)}

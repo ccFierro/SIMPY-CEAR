@@ -23,6 +23,8 @@
   let startedAt = 0;
   let axesOwner = "";
   let axesQueue = Promise.resolve();
+  let measuredPose = null;
+  let userEditing = false;
 
   function sensorPath() { return document.getElementById("tcpSensorSelect").value; }
 
@@ -42,13 +44,34 @@
 
   function showPose(result) {
     if (!Array.isArray(result.position) || !Array.isArray(result.rotation)) return;
-    [...result.position, ...result.rotation].forEach((value, index) => {
-      fields[index].value = Number(value).toFixed(4);
+    measuredPose = [...result.position, ...result.rotation].map(Number);
+    if (!userEditing) measuredPose.forEach((value, index) => { fields[index].value = value.toFixed(4); });
+    refreshPending();
+  }
+
+  function refreshPending() {
+    if (!measuredPose) return;
+    let pendingAny = false;
+    fields.forEach((field, index) => {
+      const value = Number(field.value);
+      const pending = field.value.trim() === "" || !Number.isFinite(value) ||
+        Math.abs(value - measuredPose[index]) > (index < 3 ? 0.0005 : 0.002);
+      field.parentElement.classList.toggle("is-pending", pending);
+      pendingAny ||= pending;
     });
+    userEditing = pendingAny;
+  }
+
+  function destination() {
+    const values = fields.map(field => Number(field.value));
+    if (fields.some(field => field.value.trim() === "") || values.some(value => !Number.isFinite(value))) {
+      throw new Error("Completa X, Y, Z y rx, ry, rz con números finitos.");
+    }
+    return values;
   }
 
   function reportError(error) {
-    status.textContent = "Movimiento detenido.";
+    status.textContent = "No se completó la acción.";
     RoboLabNotifications.show(error.message || String(error), { within: dialog, type: "error" });
   }
 
@@ -145,7 +168,11 @@
   }
 
   document.getElementById("robotJogOpen").addEventListener("click", () => {
+    RoboticaPoseInsert.rememberEditor();
     frame.value = "tool";
+    measuredPose = null;
+    userEditing = false;
+    fields.forEach(field => { field.value = ""; field.parentElement.classList.remove("is-pending"); });
     status.textContent = "Mantén pulsado un eje para mover el TCP.";
     dialog.showModal();
     axesOwner = crypto.randomUUID();
@@ -153,7 +180,45 @@
     readPose();
   });
   document.getElementById("tcpSensorSelect").addEventListener("change", () => {
-    if (dialog.open && axesOwner && sensorPath()) updateAxes("robotJogAxesShow", axesOwner, sensorPath());
+    if (dialog.open && axesOwner && sensorPath()) {
+      userEditing = false;
+      updateAxes("robotJogAxesShow", axesOwner, sensorPath());
+      readPose();
+    }
+  });
+
+  for (const field of fields) {
+    field.addEventListener("input", () => {
+      if (measuredPose) refreshPending();
+      else { userEditing = true; field.parentElement.classList.add("is-pending"); }
+      if (userEditing) status.textContent = "Destino pendiente: el TCP todavía no está en esta pose.";
+    });
+  }
+
+  document.getElementById("robotJogSavePoint").addEventListener("click", () => {
+    try {
+      RoboticaPoseInsert.appendPoint(destination(), dialog);
+    } catch (error) {
+      reportError(error);
+    }
+  });
+
+  document.getElementById("robotJogMovePose").addEventListener("click", async () => {
+    if (activeId || starting || busy) return;
+    try {
+      const pose = destination();
+      if (!sensorPath()) throw new Error("Selecciona un sensor TCP en la cabecera.");
+      busy = true;
+      status.textContent = "Calculando IK y moviendo el robot al destino…";
+      const result = await request("robotJogMovePose", { sensorPath: sensorPath(), pose });
+      userEditing = false;
+      showPose(result);
+      status.textContent = "El TCP llegó al destino.";
+    } catch (error) {
+      reportError(error);
+    } finally {
+      busy = false;
+    }
   });
 
   for (const control of controller.querySelectorAll(".pose-control")) {

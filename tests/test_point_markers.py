@@ -1,6 +1,6 @@
 import unittest
 
-from roboticalab.point_markers import TAG, assigned_names, delete_named_points, named_poses, reconcile_named_points, sync_named_points
+from roboticalab.point_markers import TAG, assigned_names, delete_named_points, named_poses, poses_from_sources, reconcile_named_points, sync_named_points
 from roboticalab.ur_scene import p
 
 
@@ -127,6 +127,7 @@ class NamedPointTests(unittest.TestCase):
         unchanged = reconcile_named_points(sim, {"preToma": p[-0.35, 0.335, 0.45, 0, -3.14159, 0]})
         self.assertEqual(unchanged["deleted"], [])
         self.assertEqual(sim.objects["/preToma"], first_handle)
+        self.assertEqual(unchanged["markers"], [])
         changed = reconcile_named_points(sim, {"preToma": p[-0.34, 0.335, 0.45, 0, -3.14159, 0]})
         self.assertEqual(changed["deleted"], ["preToma"])
         self.assertNotEqual(sim.objects["/preToma"], first_handle)
@@ -137,6 +138,26 @@ class NamedPointTests(unittest.TestCase):
 
     def test_assigned_names_only_lists_executed_cell_assignments(self):
         self.assertEqual(assigned_names("preToma = p[1, 2, 3]\nx = 4\ndel x"), {"preToma", "x"})
+
+    def test_preview_reads_points_without_executing_code(self):
+        sources = ["x = 0.35\npreToma = p[-x, 0.335, 0.45, 0, -np.pi, 0]",
+                   "raise RuntimeError('no ejecutar')\nponer = p[x, 0, 0.4]",
+                   "incompleto = p[\notro = p[0, 0.1, 0.4]"]
+        poses = poses_from_sources(sources)
+        self.assertEqual(list(poses), ["preToma", "poner", "otro"])
+        self.assertEqual(poses["preToma"][0], -0.35)
+        self.assertAlmostEqual(poses["preToma"][4], -3.141592653589793)
+        self.assertEqual(poses["otro"], p[0, 0.1, 0.4])
+
+    def test_preview_tracks_renames_and_changed_source(self):
+        sim = FakeSim()
+        reconcile_named_points(sim, poses_from_sources(["target_1 = p[0, 0, 0.4]"]))
+        self.assertIn("/target_1", sim.objects)
+        result = reconcile_named_points(sim, poses_from_sources(["target_2 = p[0.1, 0, 0.4]"]))
+        self.assertEqual(result["deleted"], ["target_1"])
+        self.assertIn("/target_2", sim.objects)
+        reconcile_named_points(sim, {})
+        self.assertNotIn("/target_2", sim.objects)
 
     def test_existing_unowned_object_is_not_modified(self):
         sim = FakeSim()

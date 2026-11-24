@@ -1560,7 +1560,7 @@ async function executeCell(cell, run) {
     const done = await PythonRuntime.run(editor.value, cell.dataset.cellNumber, {
       mode: run.mode, legacyMatmul: document.getElementById("legacyMatmul").checked,
       extraPath: document.getElementById("coppeliaClientPath").value.trim(),
-      syncCoppeliaPoints: document.body.classList.contains("coppelia-notebook"),
+      syncCoppeliaPoints: false, // La vista previa observa el texto sin ejecutar Python.
       coppeliaHost: document.getElementById("coppeliaHost").value.trim(),
       coppeliaPort: Number(document.getElementById("coppeliaPort").value)
     }, event => {
