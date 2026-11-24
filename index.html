@@ -77,7 +77,7 @@
           <div class="scene-tools-heading"><strong>Escena de Coppelia</strong><span id="sceneInventoryStatus" role="status" aria-live="polite">Buscando escena…</span></div>
           <div class="scene-tools-grid">
             <button id="poseMarkerOpen" type="button">Marco 3D</button>
-            <button id="robotJogOpen" type="button" aria-haspopup="dialog" aria-controls="robotJogDialog">Mover robot</button>
+            <button id="robotJogOpen" type="button" aria-haspopup="dialog" aria-controls="robotJogDialog"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v20M2 12h20M12 2l-3 3m3-3 3 3M22 12l-3-3m3 3-3 3M12 22l-3-3m3 3 3-3M2 12l3-3m-3 3 3 3"/></svg>Mover robot</button>
             <button id="sceneInventoryToggle" type="button" aria-haspopup="dialog" aria-controls="sceneInventoryDialog">Señales y equipos</button>
           </div>
           <section class="tcp-live" aria-label="Pose World del sensor TCP">
@@ -376,7 +376,11 @@
           <label>Referencia <select id="robotJogFrame"><option value="tool" selected>TCP</option><option value="world">World</option></select></label>
         </div>
         <div id="robotJogController"></div>
-        <button id="robotJogAlignZ" class="robot-jog-align" type="button">Alinear Z ↓ <span>Herramienta hacia abajo</span></button>
+        <div class="robot-jog-alignments" role="group" aria-label="Alinear ejes del TCP con el mundo">
+          <button class="robot-jog-align" data-align-axis="x" type="button" title="Alinear el eje X del TCP con +X World">X → <span>+X World</span></button>
+          <button class="robot-jog-align" data-align-axis="y" type="button" title="Alinear el eje Y del TCP con +Y World">Y ↑ <span>+Y World</span></button>
+          <button class="robot-jog-align" data-align-axis="z" type="button" title="Alinear el eje Z del TCP hacia abajo">Z ↓ <span>Hacia abajo</span></button>
+        </div>
         <h3>Posición TCP · World · metros</h3>
         <div class="pose-marker-grid">
           <label class="pose-axis-field pose-axis-x"><span>X</span><input id="robotJogX" aria-label="Posición X del TCP" readonly /></label>

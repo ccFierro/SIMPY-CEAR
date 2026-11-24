@@ -10,6 +10,48 @@ from .ur_scene import RobotUR
 COMMAND = "SIMPY_motion_command"
 STATUS = "SIMPY_motion_status"
 HEARTBEAT = "SIMPY_motion_heartbeat"
+AXES_TAG = "customData.SIMPY_tcp_jog_axes"
+
+
+def _remove_tcp_axes(sim, owner=None):
+    data = sim.getBufferProperty(sim.handle_scene, AXES_TAG, {"noError": True})
+    record = sim.unpackTable(data) if data else {}
+    if not isinstance(record, dict):
+        record = {}
+    if owner is not None and record.get("owner") != owner:
+        return
+    for drawing in record.get("drawings", []):
+        try:
+            sim.removeDrawingObject(drawing)
+        except Exception:
+            pass  # Los dibujos también desaparecen al reiniciar la simulación.
+    sim.setBufferProperty(sim.handle_scene, AXES_TAG, sim.packTable({}))
+
+
+def _show_tcp_axes(sim, path, owner):
+    sensor_pose(sim, path)  # Comprueba que la ruta apunta a un sensor existente.
+    sensor = sim.getObject(path)
+    _remove_tcp_axes(sim)
+    drawings = []
+    try:
+        flags = sim.drawing_lines | sim.drawing_local | sim.drawing_overlay
+        for color, segment in (
+            ([0.96, 0.23, 0.23], [0, 0, 0, .025, 0, 0]),
+            ([0.18, 0.78, 0.34], [0, 0, 0, 0, .025, 0]),
+            ([0.20, 0.48, 0.98], [0, 0, 0, 0, 0, .025]),
+        ):
+            drawing = sim.addDrawingObject(flags, 3, 0, sensor, 1, color)
+            drawings.append(drawing)
+            sim.addDrawingObjectItem(drawing, segment)
+        sim.setBufferProperty(sim.handle_scene, AXES_TAG,
+                              sim.packTable({"owner": owner, "drawings": drawings}))
+    except Exception:
+        for drawing in drawings:
+            try:
+                sim.removeDrawingObject(drawing)
+            except Exception:
+                pass
+        raise
 
 
 def _robot(sim, client, sensor_path):
@@ -30,6 +72,16 @@ def _capability(sim):
 
 
 def cartesian_jog_action(sim, client, action, data):
+    if action in ("robotJogAxesShow", "robotJogAxesHide"):
+        owner = data.get("owner")
+        if not isinstance(owner, str) or not 8 <= len(owner) <= 64:
+            raise ValueError("Identificador de visualización inválido.")
+        if action == "robotJogAxesShow":
+            _show_tcp_axes(sim, data.get("sensorPath"), owner)
+        else:
+            _remove_tcp_axes(sim, owner)
+        return {"ok": True}
+
     if action == "robotJogStart":
         _capability(sim)
         if sim.getSimulationState() in (sim.simulation_stopped, sim.simulation_paused):
@@ -78,11 +130,17 @@ def cartesian_jog_action(sim, client, action, data):
         result["state"] = state
         return result
 
-    if action in ("robotJogRead", "robotJogAlignZ"):
-        if action == "robotJogAlignZ":
+    if action in ("robotJogRead", "robotJogAlignAxis"):
+        if action == "robotJogAlignAxis":
             _capability(sim)
             robot = _robot(sim, client, data.get("sensorPath"))
-            robot.align_z(1)
+            axis = data.get("axis")
+            if axis == "z":
+                robot.align_z(1)
+            elif axis in ("x", "y"):
+                robot.align_axis(axis)
+            else:
+                raise ValueError("Selecciona un eje X, Y o Z.")
         return sensor_pose(sim, data.get("sensorPath"))
 
     raise ValueError("Acción cartesiana desconocida.")

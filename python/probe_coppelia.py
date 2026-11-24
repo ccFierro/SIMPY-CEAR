@@ -45,7 +45,7 @@ try:
                             data.get("step"), data.get("frame", "world"))
     elif action in ("markerCreate", "markerRead", "markerSet", "markerJog", "markerAlignTcp", "markerMoveTcp", "markerDelete"):
         result = marker_action(sim, action, data, client)
-    elif action in ("robotJogStart", "robotJogHeartbeat", "robotJogStop", "robotJogRead", "robotJogAlignZ"):
+    elif action in ("robotJogStart", "robotJogHeartbeat", "robotJogStop", "robotJogRead", "robotJogAlignAxis", "robotJogAxesShow", "robotJogAxesHide"):
         result = cartesian_jog_action(sim, client, action, data)
     else:
         result = {"ok": True, "message": "CoppeliaSim conectado", "state": sim.getSimulationState(),

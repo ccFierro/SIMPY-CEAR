@@ -305,6 +305,20 @@ class RobotSceneTests(unittest.TestCase):
         self.assertTrue(np.allclose(_quaternion_rotate(targets[0].quaternion, [0, 0, 1]),
                                     [0, 0, -1], atol=1e-10))
 
+    def test_align_x_and_y_preserve_tcp_position(self):
+        robot = self.make_robot()
+        half = np.sqrt(0.5)
+        robot.tcp_pose = lambda: [0.2, -0.1, 0.4, 0, 0, half, half]
+        targets = []
+        robot.movel = lambda target: targets.append(target)
+        for axis, vector in (("x", [1, 0, 0]), ("y", [0, 1, 0])):
+            robot.align_axis(axis)
+            self.assertTrue(np.allclose(targets[-1].xyz, [0.2, -0.1, 0.4]))
+            self.assertTrue(np.allclose(_quaternion_rotate(targets[-1].quaternion, vector),
+                                        vector, atol=1e-10))
+        with self.assertRaisesRegex(ValueError, "'x' o 'y'"):
+            robot.align_axis("z")
+
     def test_movel_pose_interpolates_tcp_orientation(self):
         robot = self.make_robot()
         orientations = []

@@ -21,6 +21,8 @@
   let readBusy = false;
   let heartbeatTimer = null;
   let startedAt = 0;
+  let axesOwner = "";
+  let axesQueue = Promise.resolve();
 
   function sensorPath() { return document.getElementById("tcpSensorSelect").value; }
 
@@ -48,6 +50,11 @@
   function reportError(error) {
     status.textContent = "Movimiento detenido.";
     RoboLabNotifications.show(error.message || String(error), { within: dialog, type: "error" });
+  }
+
+  function updateAxes(action, owner, path = "") {
+    axesQueue = axesQueue.catch(() => {}).then(() => request(action, { owner, sensorPath: path }));
+    axesQueue.catch(error => { if (dialog.open) reportError(error); });
   }
 
   async function readPose() {
@@ -141,7 +148,12 @@
     frame.value = "tool";
     status.textContent = "Mantén pulsado un eje para mover el TCP.";
     dialog.showModal();
+    axesOwner = crypto.randomUUID();
+    if (sensorPath()) updateAxes("robotJogAxesShow", axesOwner, sensorPath());
     readPose();
+  });
+  document.getElementById("tcpSensorSelect").addEventListener("change", () => {
+    if (dialog.open && axesOwner && sensorPath()) updateAxes("robotJogAxesShow", axesOwner, sensorPath());
   });
 
   for (const control of controller.querySelectorAll(".pose-control")) {
@@ -164,26 +176,33 @@
   window.addEventListener("pointercancel", stop);
   window.addEventListener("blur", stop);
   document.addEventListener("visibilitychange", () => { if (document.hidden) stop(); });
-  dialog.addEventListener("close", stop);
+  dialog.addEventListener("close", () => {
+    stop();
+    if (axesOwner) updateAxes("robotJogAxesHide", axesOwner);
+    axesOwner = "";
+  });
   dialog.addEventListener("cancel", event => { if (busy) event.preventDefault(); });
   dialog.querySelector(".dialog-close").addEventListener("click", event => {
     if (busy) { event.preventDefault(); status.textContent = "Espera a que termine la alineación."; }
   });
   setInterval(readPose, 1000);
 
-  document.getElementById("robotJogAlignZ").addEventListener("click", async () => {
-    if (activeId || starting || busy) return;
-    if (!sensorPath()) { reportError(new Error("Selecciona un sensor TCP en la cabecera.")); return; }
-    busy = true;
-    status.textContent = "Alineando Z de la herramienta hacia abajo…";
-    try {
-      const result = await request("robotJogAlignZ", { sensorPath: sensorPath() });
-      showPose(result);
-      status.textContent = "Herramienta alineada hacia abajo.";
-    } catch (error) {
-      reportError(error);
-    } finally {
-      busy = false;
-    }
-  });
+  for (const button of dialog.querySelectorAll("[data-align-axis]")) {
+    button.addEventListener("click", async () => {
+      if (activeId || starting || busy) return;
+      if (!sensorPath()) { reportError(new Error("Selecciona un sensor TCP en la cabecera.")); return; }
+      const axis = button.dataset.alignAxis;
+      busy = true;
+      status.textContent = axis === "z" ? "Alineando Z del TCP hacia abajo…" : `Alineando ${axis.toUpperCase()} del TCP con World…`;
+      try {
+        const result = await request("robotJogAlignAxis", { sensorPath: sensorPath(), axis });
+        showPose(result);
+        status.textContent = `Eje ${axis.toUpperCase()} alineado.`;
+      } catch (error) {
+        reportError(error);
+      } finally {
+        busy = false;
+      }
+    });
+  }
 })();

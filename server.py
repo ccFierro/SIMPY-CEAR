@@ -242,7 +242,7 @@ def coppelia_action(data):
                                stderr=subprocess.PIPE, text=True, encoding="utf-8",
                                creationflags=CREATE_NO_WINDOW)
     try:
-        stdout, stderr = process.communicate(json.dumps(data), timeout=130 if data.get("action") in ("markerMoveTcp", "robotJogAlignZ") else 20)
+        stdout, stderr = process.communicate(json.dumps(data), timeout=130 if data.get("action") in ("markerMoveTcp", "robotJogAlignAxis") else 20)
     except subprocess.TimeoutExpired as error:
         if os.name == "nt":
             subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"],
@@ -355,7 +355,7 @@ def handler_for(app):
                     self.reply(200, {"ok": True})
                     return
                 if endpoint == "/api/coppelia":
-                    if data.get("action") not in ("probe", "stop", "start", "scene", "inventory", "tcpPose", "identifyEquipment", "testConveyor", "jogJoint", "jogTarget", "markerCreate", "markerRead", "markerSet", "markerJog", "markerAlignTcp", "markerMoveTcp", "markerDelete", "robotJogStart", "robotJogHeartbeat", "robotJogStop", "robotJogRead", "robotJogAlignZ"):
+                    if data.get("action") not in ("probe", "stop", "start", "scene", "inventory", "tcpPose", "identifyEquipment", "testConveyor", "jogJoint", "jogTarget", "markerCreate", "markerRead", "markerSet", "markerJog", "markerAlignTcp", "markerMoveTcp", "markerDelete", "robotJogStart", "robotJogHeartbeat", "robotJogStop", "robotJogRead", "robotJogAlignAxis", "robotJogAxesShow", "robotJogAxesHide"):
                         raise ValueError("Acción de CoppeliaSim inválida")
                     self.reply(200, coppelia_action(data))
                     return

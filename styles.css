@@ -1391,13 +1391,14 @@ button:focus-visible, [role="separator"]:focus-visible { outline: 2px solid var(
 .scene-tools-heading strong { flex: 0 0 auto; font-size: 12px; }
 .scene-tools-heading span { min-width: 0; color: var(--muted); font-size: 11px; text-align: right; overflow-wrap: anywhere; }
 .scene-tools-heading span.error { color: var(--danger); }
-.scene-tools-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.scene-tools-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .scene-tools-grid button { display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; min-height: 36px; padding: 7px; border: 1px solid var(--line); border-radius: 8px; color: var(--text); background: var(--panel-2); cursor: pointer; font-size: 12px; font-weight: 700; }
 .scene-tools-grid button:hover { border-color: var(--cyan); color: var(--cyan); }
 .scene-tools-grid button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
-.scene-tools-grid #sceneInventoryToggle { grid-column: 1 / -1; }
+.scene-tools-grid svg { width: 15px; height: 15px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .robot-jog-dialog .pose-controller { margin-block: 14px; }
-.robot-jog-dialog .robot-jog-align { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 44px; margin-bottom: 16px; border: 1px solid color-mix(in srgb, #578ce0 50%, var(--pose-line)); border-radius: 8px; color: var(--pose-ink); background: color-mix(in srgb, #578ce0 13%, var(--pose-surface)); font-size: 13px; font-weight: 750; cursor: pointer; }
+.robot-jog-alignments { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 16px; }
+.robot-jog-dialog .robot-jog-align { display: flex; align-items: center; justify-content: center; gap: 5px; min-width: 0; min-height: 44px; border: 1px solid color-mix(in srgb, #578ce0 50%, var(--pose-line)); border-radius: 8px; color: var(--pose-ink); background: color-mix(in srgb, #578ce0 13%, var(--pose-surface)); font-size: 13px; font-weight: 750; cursor: pointer; }
 .robot-jog-dialog .robot-jog-align:hover { background: color-mix(in srgb, #578ce0 22%, var(--pose-surface)); }
 .robot-jog-dialog .robot-jog-align span { color: var(--pose-muted); font-size: 11px; font-weight: 500; }
 .robot-jog-dialog #robotJogStatus { min-height: 20px; margin: 15px 0 0; color: var(--pose-muted); font-size: 12px; }

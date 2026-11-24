@@ -22,7 +22,7 @@ const names = [
   'latest.yml'
 ];
 const assets = names.map(name => ({ name, file: path.join(directory, name) }));
-assets.push({ name: `SIMPY-CEAR-UR3-scene-${version}.ttt`, file: path.join(project, 'scenes', 'UR3_CEAR_motion.ttt') });
+assets.push({ name: `SIMPY-CEAR-UR3-scene-${version}.ttt`, file: path.join(project, 'scenes', 'UR3_active_with_motion_controller.ttt') });
 for (const asset of assets) if (!fs.existsSync(asset.file)) throw new Error(`Falta ${asset.file}; genera primero el instalador y guarda la escena.`);
 if (!fs.readFileSync(path.join(directory, 'latest.yml'), 'utf8').includes(`version: ${version}`)) {
   throw new Error('latest.yml no coincide con la versión del paquete.');

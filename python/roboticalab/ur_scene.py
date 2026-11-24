@@ -462,28 +462,40 @@ class RobotUR:
         self._running()
         if isinstance(direction, (bool, np.bool_)) or direction not in (-1, 1):
             raise ValueError("align_z usa 1 para abajo o -1 para arriba.")
+        result = self._align_axis_world([0, 0, 1], [0, 0, -direction])
+        self._aligned_z = direction
+        return result
+
+    def align_axis(self, axis):
+        """Alinea X o Y del TCP con el eje positivo correspondiente de World."""
+        if axis not in ("x", "y"):
+            raise ValueError("align_axis usa 'x' o 'y'.")
+        basis = [1, 0, 0] if axis == "x" else [0, 1, 0]
+        self._aligned_z = None
+        return self._align_axis_world(basis, basis)
+
+    def _align_axis_world(self, local_axis, world_axis):
+        self._running()
         current = self.tcp_pose()
         quaternion = np.asarray(current[3:], dtype=float)
         quaternion /= np.linalg.norm(quaternion)
-        axis_now = _quaternion_rotate(quaternion, [0, 0, 1])
-        axis_goal = np.array([0, 0, -direction], dtype=float)
+        axis_now = _quaternion_rotate(quaternion, local_axis)
+        axis_goal = np.array(world_axis, dtype=float)
         cosine = float(np.clip(np.dot(axis_now, axis_goal), -1, 1))
         angle = np.arccos(cosine)
         if angle <= np.radians(1):
-            self._aligned_z = direction
             return np.asarray(current[:3], dtype=float)
         axis = np.cross(axis_now, axis_goal)
         norm = np.linalg.norm(axis)
         if norm < 1e-12:
-            axis = _quaternion_rotate(quaternion, [1, 0, 0])
+            perpendicular = [0, 1, 0] if local_axis[0] else [1, 0, 0]
+            axis = _quaternion_rotate(quaternion, perpendicular)
         else:
             axis /= norm
         half_turn = [*(axis * np.sin(angle / 2)).tolist(), float(np.cos(angle / 2))]
         target_quaternion = _quaternion_multiply(half_turn, quaternion)
         rotation = _rotation_vector(target_quaternion)
-        result = self.movel(Pose([*current[:3], *rotation]))
-        self._aligned_z = direction
-        return result
+        return self.movel(Pose([*current[:3], *rotation]))
 
     def movel(self, posicion, paso=0.02):
         """Avanza por puntos TCP de una línea, resolviendo IK en cada punto."""
