@@ -14,6 +14,7 @@ from roboticalab import connect_coppelia
 from roboticalab.manual_control import jog_joint, jog_target, scene_snapshot, simulation_running
 from roboticalab.scene_inventory import scene_inventory, sensor_pose, identify_equipment, test_conveyor
 from roboticalab.pose_marker import marker_action
+from roboticalab.cartesian_jog import cartesian_jog_action
 
 client = None
 try:
@@ -44,6 +45,8 @@ try:
                             data.get("step"), data.get("frame", "world"))
     elif action in ("markerCreate", "markerRead", "markerSet", "markerJog", "markerAlignTcp", "markerMoveTcp", "markerDelete"):
         result = marker_action(sim, action, data, client)
+    elif action in ("robotJogStart", "robotJogHeartbeat", "robotJogStop", "robotJogRead", "robotJogAlignZ"):
+        result = cartesian_jog_action(sim, client, action, data)
     else:
         result = {"ok": True, "message": "CoppeliaSim conectado", "state": sim.getSimulationState(),
                   "running": simulation_running(sim), "version": sim.getInt32Param(sim.intparam_program_version)}

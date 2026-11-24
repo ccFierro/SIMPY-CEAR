@@ -1395,6 +1395,13 @@ button:focus-visible, [role="separator"]:focus-visible { outline: 2px solid var(
 .scene-tools-grid button { display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; min-height: 36px; padding: 7px; border: 1px solid var(--line); border-radius: 8px; color: var(--text); background: var(--panel-2); cursor: pointer; font-size: 12px; font-weight: 700; }
 .scene-tools-grid button:hover { border-color: var(--cyan); color: var(--cyan); }
 .scene-tools-grid button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.scene-tools-grid #sceneInventoryToggle { grid-column: 1 / -1; }
+.robot-jog-dialog .pose-controller { margin-block: 14px; }
+.robot-jog-dialog .robot-jog-align { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 44px; margin-bottom: 16px; border: 1px solid color-mix(in srgb, #578ce0 50%, var(--pose-line)); border-radius: 8px; color: var(--pose-ink); background: color-mix(in srgb, #578ce0 13%, var(--pose-surface)); font-size: 13px; font-weight: 750; cursor: pointer; }
+.robot-jog-dialog .robot-jog-align:hover { background: color-mix(in srgb, #578ce0 22%, var(--pose-surface)); }
+.robot-jog-dialog .robot-jog-align span { color: var(--pose-muted); font-size: 11px; font-weight: 500; }
+.robot-jog-dialog #robotJogStatus { min-height: 20px; margin: 15px 0 0; color: var(--pose-muted); font-size: 12px; }
+.robot-jog-dialog .pose-marker-grid input[readonly] { cursor: default; }
 .tcp-live { display: grid; gap: 7px; padding-top: 9px; border-top: 1px solid var(--line); }
 .tcp-live-heading { display: grid; grid-template-columns: auto minmax(90px, 1fr) auto; align-items: center; gap: 8px; min-width: 0; }
 .tcp-live-heading strong { font-size: 11px; white-space: nowrap; }

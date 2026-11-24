@@ -21,12 +21,14 @@ const names = [
   `SIMPY-CEAR-Setup-${version}-x64.exe.blockmap`,
   'latest.yml'
 ];
-for (const name of names) if (!fs.existsSync(path.join(directory, name))) throw new Error(`Falta ${name}; genera primero el instalador.`);
+const assets = names.map(name => ({ name, file: path.join(directory, name) }));
+assets.push({ name: `SIMPY-CEAR-UR3-scene-${version}.ttt`, file: path.join(project, 'scenes', 'UR3_CEAR_motion.ttt') });
+for (const asset of assets) if (!fs.existsSync(asset.file)) throw new Error(`Falta ${asset.file}; genera primero el instalador y guarda la escena.`);
 if (!fs.readFileSync(path.join(directory, 'latest.yml'), 'utf8').includes(`version: ${version}`)) {
   throw new Error('latest.yml no coincide con la versión del paquete.');
 }
 if (dryRun) {
-  process.stdout.write(`Publicación preparada: ${repository} · v${version}\n${names.join('\n')}\n`);
+  process.stdout.write(`Publicación preparada: ${repository} · v${version}\n${assets.map(asset => asset.name).join('\n')}\n`);
   process.exit(0);
 }
 
@@ -64,8 +66,8 @@ async function main() {
   } else if (existing.ok) release = await existing.json();
   else throw new Error(`GitHub ${existing.status}: ${(await existing.text()).slice(0, 500)}`);
   if (!release.draft) throw new Error('La versión ya está publicada. Incrementa la versión antes de generar otra.');
-  for (const name of names) {
-    const content = fs.readFileSync(path.join(directory, name));
+  for (const { name, file } of assets) {
+    const content = fs.readFileSync(file);
     const existingAsset = release.assets.find(asset => asset.name === name);
     if (existingAsset) {
       const digest = `sha256:${createHash('sha256').update(content).digest('hex')}`;

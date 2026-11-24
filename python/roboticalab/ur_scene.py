@@ -3,6 +3,7 @@
 import math
 import re
 import time
+import uuid
 
 import numpy as np
 
@@ -211,6 +212,54 @@ class RobotUR:
         for joint, angle in zip(self.juntas, q):
             self.sim.setJointTargetPosition(joint, float(angle))
 
+    def _scene_motion(self, kind, destination, step=None):
+        """Delega la ruta y la IK al controlador Lua si la escena lo incluye."""
+        if not hasattr(self.sim, "readCustomTableData"):
+            return False
+        capability = self.sim.readCustomTableData(self.sim.handle_scene, "SIMPY_motion_v1")
+        if not isinstance(capability, dict) or capability.get("version") != 1:
+            return False
+        status = self.sim.readCustomTableData(self.sim.handle_scene, "SIMPY_motion_status")
+        if isinstance(status, dict) and status.get("state") in ("planning", "running"):
+            raise RuntimeError("El robot ya está ejecutando otro movimiento.")
+        command_id = uuid.uuid4().hex
+        command = {"id": command_id, "kind": kind, "root": self.ruta,
+                   "joints": [item["ruta"] for item in self.datos],
+                   "tcp": self.sim.getObjectAlias(self.tcp, 2)}
+        if kind == "movej" and not isinstance(destination, Pose):
+            command["q"] = self._angles(destination).tolist()
+        else:
+            if isinstance(destination, Pose):
+                command["pose"] = [*destination.xyz.tolist(), *destination.quaternion] if destination.quaternion is not None else destination.xyz.tolist()
+            else:
+                command["pose"] = _xyz(destination).tolist()
+        if step is not None:
+            command["step"] = float(step)
+        self.sim.writeCustomTableData(self.sim.handle_scene, "SIMPY_motion_heartbeat",
+                                      {"id": command_id, "time": self.sim.getSystemTime()})
+        self.sim.writeCustomTableData(self.sim.handle_scene, "SIMPY_motion_command", command)
+        try:
+            deadline = time.monotonic() + 125
+            while time.monotonic() < deadline:
+                self.sim.writeCustomTableData(self.sim.handle_scene, "SIMPY_motion_heartbeat",
+                                              {"id": command_id, "time": self.sim.getSystemTime()})
+                status = self.sim.readCustomTableData(self.sim.handle_scene, "SIMPY_motion_status")
+                if isinstance(status, dict) and status.get("id") == command_id:
+                    if status.get("state") == "done":
+                        return True
+                    if status.get("state") == "error":
+                        raise RuntimeError(status.get("message") or "El movimiento falló en CoppeliaSim.")
+                if self.sim.getSimulationState() in (self.sim.simulation_stopped,
+                                                      self.sim.simulation_paused):
+                    raise RuntimeError("La simulación se detuvo durante el movimiento.")
+                time.sleep(0.1)
+            raise TimeoutError("CoppeliaSim no terminó el movimiento en 125 segundos.")
+        finally:
+            status = self.sim.readCustomTableData(self.sim.handle_scene, "SIMPY_motion_status")
+            if isinstance(status, dict) and status.get("id") == command_id and status.get("state") in ("planning", "running"):
+                self.sim.writeCustomTableData(self.sim.handle_scene, "SIMPY_motion_command",
+                                              {"id": command_id, "kind": "cancel"})
+
     def _wait_q(self, target, cyclic, timeout=8, tolerance_deg=2):
         limit = time.monotonic() + timeout
         tolerance = np.radians(tolerance_deg)
@@ -243,6 +292,8 @@ class RobotUR:
         self._running()
         if not 2 <= pasos <= 200 or not 0 <= intervalo <= 1:
             raise ValueError("Usa 2 a 200 pasos y un intervalo de 0 a 1 s.")
+        if self._scene_motion("movej", q_destino):
+            return self.q()
         if isinstance(q_destino, Pose):
             orientation = q_destino.quaternion
             if orientation is None:
@@ -440,6 +491,8 @@ class RobotUR:
         target = posicion.xyz if isinstance(posicion, Pose) else _xyz(posicion)
         if not 0.002 <= paso <= 0.05:
             raise ValueError("El paso lineal debe estar entre 2 y 50 mm.")
+        if self._scene_motion("movel", posicion, step=min(paso, 0.005)):
+            return np.asarray(self.tcp_pose()[:3])
         current_pose = self.tcp_pose()
         start = _xyz(current_pose[:3])
         start_orientation = current_pose[3:]

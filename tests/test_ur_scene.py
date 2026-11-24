@@ -71,6 +71,44 @@ class RobotSceneTests(unittest.TestCase):
         robot._ik = None
         return robot
 
+    def test_scene_controller_receives_pose_and_moves_without_python_joint_commands(self):
+        class SceneMotionSim(FakeSim):
+            handle_scene = -2
+
+            def __init__(self):
+                super().__init__()
+                self.tables = {"SIMPY_motion_v1": {"version": 1}}
+
+            def readCustomTableData(self, handle, tag):
+                return self.tables.get(tag, {})
+
+            def writeCustomTableData(self, handle, tag, value):
+                self.tables[tag] = value
+                if tag == "SIMPY_motion_command" and value.get("kind") != "cancel":
+                    self.tables["SIMPY_motion_status"] = {
+                        "id": value["id"], "state": "done", "message": "ok"}
+
+            def getSystemTime(self):
+                return 10.0
+
+            def getObjectAlias(self, handle, mode):
+                return "/UR3/suctionPad/Sensor"
+
+        robot = self.make_robot()
+        robot.sim = SceneMotionSim()
+        robot.ruta = "/UR3"
+        robot.datos = [{"ruta": f"/UR3/joint{i}"} for i in range(6)]
+        robot.movej(p[0.2, 0.1, 0.4])
+        command = robot.sim.tables["SIMPY_motion_command"]
+        self.assertEqual(command["kind"], "movej")
+        self.assertEqual(command["pose"], [0.2, 0.1, 0.4])
+        self.assertEqual(len(command["joints"]), 6)
+        robot.movel(p[0.3, 0.1, 0.4, 0, 0, 0])
+        command = robot.sim.tables["SIMPY_motion_command"]
+        self.assertEqual(command["kind"], "movel")
+        self.assertEqual(command["pose"], [0.3, 0.1, 0.4, 0, 0, 0, 1])
+        self.assertEqual(robot.sim.commands, [])
+
     def test_analog_conveyor_output_uses_signed_mm_per_second(self):
         robot = self.make_robot()
         robot.set_analog_output("AO_00", -80)

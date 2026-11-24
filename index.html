@@ -77,6 +77,7 @@
           <div class="scene-tools-heading"><strong>Escena de Coppelia</strong><span id="sceneInventoryStatus" role="status" aria-live="polite">Buscando escena…</span></div>
           <div class="scene-tools-grid">
             <button id="poseMarkerOpen" type="button">Marco 3D</button>
+            <button id="robotJogOpen" type="button" aria-haspopup="dialog" aria-controls="robotJogDialog">Mover robot</button>
             <button id="sceneInventoryToggle" type="button" aria-haspopup="dialog" aria-controls="sceneInventoryDialog">Señales y equipos</button>
           </div>
           <section class="tcp-live" aria-label="Pose World del sensor TCP">
@@ -358,6 +359,37 @@
       <code id="poseMarkerCode" class="pose-marker-code">p[0, 0, 0.35, 0, 0, 0]</code>
       <div class="dialog-actions pose-marker-secondary"><button id="poseMarkerCopy" type="button">Copiar pose</button><button id="poseMarkerInsert" type="button">Insertar en celda</button><button id="poseMarkerDelete" type="button">Eliminar marcador</button></div>
       <p id="poseMarkerStatus" role="status" aria-live="polite">Crea un marcador para comenzar.</p>
+      </div>
+    </dialog>
+    <dialog id="robotJogDialog" class="python-dialog pose-marker-dialog robot-jog-dialog" aria-labelledby="robotJogTitle">
+      <div class="pose-dialog-brand">
+        <span class="pose-brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M16 2 29 9v14L16 30 3 23V9L16 2Z M3 9l13 7 13-7 M16 16v14"/></svg></span>
+        <span><strong>SIMPY - CEAR</strong><small>CoppeliaSim</small></span>
+        <form method="dialog"><button class="dialog-close" aria-label="Cerrar mando del robot">×</button></form>
+      </div>
+      <div class="pose-dialog-content">
+        <h2 id="robotJogTitle">Mover robot</h2>
+        <p class="pose-dialog-lead">Mantén pulsado un eje para desplazar el TCP. Suelta para detener el movimiento.</p>
+        <div class="pose-marker-steps">
+          <label>Velocidad lineal (mm/s) <input id="robotJogLinearSpeed" type="number" min="1" max="90" value="30" /></label>
+          <label>Velocidad angular (°/s) <input id="robotJogAngularSpeed" type="number" min="1" max="90" value="20" /></label>
+          <label>Referencia <select id="robotJogFrame"><option value="tool" selected>TCP</option><option value="world">World</option></select></label>
+        </div>
+        <div id="robotJogController"></div>
+        <button id="robotJogAlignZ" class="robot-jog-align" type="button">Alinear Z ↓ <span>Herramienta hacia abajo</span></button>
+        <h3>Posición TCP · World · metros</h3>
+        <div class="pose-marker-grid">
+          <label class="pose-axis-field pose-axis-x"><span>X</span><input id="robotJogX" aria-label="Posición X del TCP" readonly /></label>
+          <label class="pose-axis-field pose-axis-y"><span>Y</span><input id="robotJogY" aria-label="Posición Y del TCP" readonly /></label>
+          <label class="pose-axis-field pose-axis-z"><span>Z</span><input id="robotJogZ" aria-label="Posición Z del TCP" readonly /></label>
+        </div>
+        <h3>Orientación TCP · vector de rotación en radianes</h3>
+        <div class="pose-marker-grid">
+          <label class="pose-axis-field pose-axis-x"><span>rx</span><input id="robotJogRx" aria-label="Orientación RX del TCP" readonly /></label>
+          <label class="pose-axis-field pose-axis-y"><span>ry</span><input id="robotJogRy" aria-label="Orientación RY del TCP" readonly /></label>
+          <label class="pose-axis-field pose-axis-z"><span>rz</span><input id="robotJogRz" aria-label="Orientación RZ del TCP" readonly /></label>
+        </div>
+        <p id="robotJogStatus" role="status" aria-live="polite">Selecciona el TCP para comenzar.</p>
       </div>
     </dialog>
     <dialog id="pythonSettings" class="python-dialog">

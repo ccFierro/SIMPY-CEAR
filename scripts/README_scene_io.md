@@ -42,3 +42,13 @@ El mismo controlador observa `/SensorSalida` y repone en `/PuntoEntrada` únicam
 Cuando un cubo llega al sensor, el controlador espera a que no haya otro cubo a menos de `entryClearance` metros del punto de entrada. Tampoco repone mientras `DI_01` indique que la ventosa sostiene una pieza. Procesa un cubo por paso de simulación. Para añadir más cubos a otra escena, pon sus nombres exactos en `cubeNames`; otros objetos detectados por el sensor no se reponen.
 
 La escena [`../scenes/UR3_CEAR_IO_color.ttt`](../scenes/UR3_CEAR_IO_color.ttt) incorpora esta lógica. La reposición aún requiere la prueba funcional del docente en su rutina.
+
+## Movimiento del robot dentro de CoppeliaSim
+
+Añade [`coppelia_motion_controller.lua`](coppelia_motion_controller.lua) como un segundo **script de personalización no threaded** de la escena. `CEAR_SceneIO` sigue encargado de las señales, cintas y sensores. El nuevo controlador recibe `movej` y `movel` desde el cuaderno, construye la IK con `simIK` usando las seis articulaciones y el sensor TCP indicados por Python, comprueba toda la trayectoria antes de mover y envía objetivos articulares en cada paso de simulación. Para `movej` con seis ángulos no se necesita IK; para `movej(p[...])` y `movel(p[...])` se calcula dentro de la escena.
+
+La sintaxis de los estudiantes no cambia. Si la escena no incluye el controlador, Python conserva el movimiento anterior. El controlador detiene el brazo cuando la aplicación deja de renovar su comunicación durante 2 segundos. Al detener la simulación se descartan las órdenes pendientes; al iniciar no se repite un movimiento anterior. Cada escena que se entregue a los estudiantes debe guardar este segundo script para usar el movimiento nuevo.
+
+El botón **Mover robot** permite desplazar el TCP de manera continua mientras se mantiene presionado el mando. La referencia inicial es **TCP**; también se puede elegir World. Al soltar el mando, cerrar la ventana o perder la comunicación, el controlador detiene el movimiento. **Alinear Z ↓** orienta la herramienta hacia abajo. El mando requiere la escena actualizada con este controlador; el instalador no modifica automáticamente las escenas externas.
+
+La escena de prueba con el controlador está guardada en [`../scenes/UR3_CEAR_motion.ttt`](../scenes/UR3_CEAR_motion.ttt). En el UR3 local se comprobaron `movej` con un cambio de 0,03 rad en J1, `movel` con un ascenso de 5 mm y `movej(p[...])` con un ascenso de 5 mm; las dos poses terminaron a menos de 0,4 mm de la altura solicitada. Las escenas `.ttt` se distribuyen por separado de la aplicación.

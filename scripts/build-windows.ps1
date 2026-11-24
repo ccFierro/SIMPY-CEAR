@@ -61,7 +61,7 @@ foreach ($relative in @('jedi\third_party\typeshed\stubs', 'jedi\third_party\dja
 $app = Join-Path $bundle 'app'
 $pythonApp = Join-Path $app 'python'
 New-Item -ItemType Directory -Force -Path $pythonApp | Out-Null
-foreach ($name in @('server.py', 'index.html', 'styles.css', 'storage.js', 'editor.js', 'execution.js', 'workspace.js', 'visual-flow.js', 'python-runtime.js', 'bootstrap.js', 'app.js', 'coppelia-panel.js', 'notifications.js', 'pose-marker.js', 'python-reference.js')) {
+foreach ($name in @('server.py', 'index.html', 'styles.css', 'storage.js', 'editor.js', 'execution.js', 'workspace.js', 'visual-flow.js', 'python-runtime.js', 'bootstrap.js', 'app.js', 'coppelia-panel.js', 'notifications.js', 'pose-marker.js', 'robot-jog.js', 'python-reference.js')) {
     Copy-Item -LiteralPath (Join-Path $projectRoot $name) -Destination $app
 }
 foreach ($name in @('kernel.py', 'probe_coppelia.py', 'complete.py')) {
