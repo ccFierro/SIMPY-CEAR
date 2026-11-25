@@ -1560,22 +1560,11 @@ async function executeCell(cell, run) {
     const done = await PythonRuntime.run(editor.value, cell.dataset.cellNumber, {
       mode: run.mode, legacyMatmul: document.getElementById("legacyMatmul").checked,
       extraPath: document.getElementById("coppeliaClientPath").value.trim(),
-      syncCoppeliaPoints: false, // La vista previa observa el texto sin ejecutar Python.
       coppeliaHost: document.getElementById("coppeliaHost").value.trim(),
       coppeliaPort: Number(document.getElementById("coppeliaPort").value)
     }, event => {
       if (event.type === "output") {
         stream += event.text;
-        cell._logs = stream.split("\n");
-        output.textContent = stream;
-        updateNotebookOutput();
-      } else if (event.type === "point_markers") {
-        const count = event.markers?.filter(marker => marker.status === "updated").length || 0;
-        const conflicts = event.markers?.filter(marker => marker.status === "name_conflict").length || 0;
-        const deleted = event.deleted?.length || 0;
-        const summary = event.error ? `No se pudieron mostrar los puntos en CoppeliaSim: ${event.error}`
-          : `${count} punto${count === 1 ? "" : "s"} actualizado${count === 1 ? "" : "s"}${deleted ? `; ${deleted} eliminado${deleted === 1 ? "" : "s"}` : ""} en CoppeliaSim${conflicts ? `; ${conflicts} nombre${conflicts === 1 ? "" : "s"} ocupado${conflicts === 1 ? "" : "s"}` : ""}.`;
-        stream += `${stream && !stream.endsWith("\n") ? "\n" : ""}[Puntos] ${summary}\n`;
         cell._logs = stream.split("\n");
         output.textContent = stream;
         updateNotebookOutput();

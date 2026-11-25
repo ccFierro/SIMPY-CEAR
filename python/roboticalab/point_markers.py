@@ -224,6 +224,7 @@ def reconcile_named_points(sim, values):
     current = named_poses(values)
     removed = []
     pending = dict(current)
+    retained = set()
     for handle in sim.getObjectsInTree(sim.handle_scene, sim.object_dummy_type, 0):
         tagged = sim.getBufferProperty(handle, TAG, {"noError": True})
         if not tagged:
@@ -233,7 +234,9 @@ def reconcile_named_points(sim, values):
         except UnicodeDecodeError:
             continue
         pose = current.get(name)
-        if pose is None:
+        preferred = _owned(sim, "/" + _alias(name), name)
+        duplicate = name in retained or (preferred not in (None, False) and handle != preferred)
+        if pose is None or duplicate:
             changed = True
         else:
             actual = sim.getObjectPose(handle, sim.handle_world)
@@ -247,5 +250,6 @@ def reconcile_named_points(sim, values):
             sim.removeObjects([handle])
             removed.append(name)
         else:
+            retained.add(name)
             pending.pop(name, None)
     return {"deleted": removed, "markers": sync_named_points(sim, pending), "visible": len(current)}

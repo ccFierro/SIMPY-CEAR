@@ -17,9 +17,10 @@ local CONFIG = {
     recycle = {
         exitSensor = '/SensorSalida',
         entryPoint = '/PuntoEntrada', -- centro del cubo sobre la cinta
-        cubeNames = {'icubo[0]', 'icubo[1]', 'icubo[2]', 'icubo[3]'},
+        cubeNamePattern = '^icubo%[%d+%]$', -- detecta automaticamente icubo[0], icubo[1], ...
         entryClearance = 0.075, -- metros entre centros antes de reponer otro cubo
     },
+    colorDisplay = {enabled = true, sensorPath = '/visionSensor'},
     externalSignals = {
         -- Senales atendidas por el Lua de ventosa; solo se publican sus etiquetas.
         {name = 'DO_00', label = 'Ventosa: activar', direction = 'output'},
@@ -36,6 +37,67 @@ local manifestRefreshes = 0
 local lastInventorySignature = nil
 local nextInventoryScan = 0
 local recycler = {sensor = nil, entry = nil, cubes = {}, rotations = {}}
+local colorUi, colorUiPlugin = nil, nil
+local nextColorUiUpdate = 0
+
+function colorDisplayClosed(handle)
+    if colorUiPlugin and handle == colorUi then
+        colorUiPlugin.destroy(handle)
+        colorUi = false -- no abrirla otra vez hasta recargar la escena
+    end
+end
+
+local function displaySensor()
+    for _, sensor in ipairs(colorSensors) do
+        if sensor.path == CONFIG.colorDisplay.sensorPath then return sensor end
+    end
+    return colorSensors[1]
+end
+
+local function ensureColorDisplay()
+    if not CONFIG.colorDisplay.enabled or colorUi ~= nil or not displaySensor() then return end
+    local available, plugin = pcall(require, 'simUI')
+    if not available then
+        sim.addLog(sim.verbosity_warnings, '[CEAR] Pantalla RGB no disponible: falta simUI.')
+        colorUi = false
+        return
+    end
+    local xml = [[<ui title="Sensor de color RGB" closeable="true" on-close="colorDisplayClosed" layout="vbox">
+        <label id="1" text="Esperando lectura" />
+        <group layout="hbox" flat="true" content-margins="0,0,0,0"><label id="2" text="R: 0 / 255" /><progressbar id="3" minimum="0" maximum="255" inverted="false" text-visible="false" style="QProgressBar::chunk {background-color: #dc6464;}" /></group>
+        <group layout="hbox" flat="true" content-margins="0,0,0,0"><label id="4" text="G: 0 / 255" /><progressbar id="5" minimum="0" maximum="255" inverted="false" text-visible="false" style="QProgressBar::chunk {background-color: #35a981;}" /></group>
+        <group layout="hbox" flat="true" content-margins="0,0,0,0"><label id="6" text="B: 0 / 255" /><progressbar id="7" minimum="0" maximum="255" inverted="false" text-visible="false" style="QProgressBar::chunk {background-color: #578ce0;}" /></group>
+        <label id="8" text="Inicia la simulacion para leer el sensor" />
+    </ui>]]
+    local ok, handle = pcall(plugin.create, xml)
+    if ok then
+        colorUiPlugin, colorUi = plugin, handle
+    else
+        sim.addLog(sim.verbosity_warnings, '[CEAR] No se pudo abrir la pantalla RGB: ' .. tostring(handle))
+        colorUi = false
+    end
+end
+
+local function updateColorDisplay(sensor, red, green, blue)
+    if not colorUi or colorUi == false or sensor ~= displaySensor() then return end
+    local now = sim.getSystemTime()
+    if now < nextColorUiUpdate then return end
+    nextColorUiUpdate = now + 0.15
+    local values = {red, green, blue}
+    local labels = {'R', 'G', 'B'}
+    local signals = {sensor.red, sensor.green, sensor.blue}
+    local maximum, minimum, index = -1, 256, 1
+    for i, value in ipairs(values) do
+        local level = math.max(0, math.min(255, math.floor(value + 0.5)))
+        colorUiPlugin.setLabelText(colorUi, i * 2, labels[i] .. ' (' .. signals[i] .. '): ' .. level .. ' / 255')
+        colorUiPlugin.setProgress(colorUi, i * 2 + 1, level)
+        if level > maximum then maximum, index = level, i end
+        if level < minimum then minimum = level end
+    end
+    colorUiPlugin.setLabelText(colorUi, 1, sensor.name)
+    local dominant = maximum - minimum >= 25 and labels[index] or 'sin dominante'
+    colorUiPlugin.setLabelText(colorUi, 8, 'Canal dominante: ' .. dominant)
+end
 
 local function prepareRecycler()
     recycler = {sensor = sim.getObject(CONFIG.recycle.exitSensor, {noError = true}),
@@ -47,12 +109,10 @@ local function prepareRecycler()
             '[CEAR] Reciclaje desactivado: falta SensorSalida o PuntoEntrada.')
         return
     end
-    local allowed = {}
-    for _, name in ipairs(CONFIG.recycle.cubeNames) do allowed[name] = true end
     for _, handle in ipairs(sim.getObjectsInTree(sim.handle_scene, sim.object_shape_type, 0)) do
         local path = sim.getObjectAlias(handle, 2)
         local name = path:match('[^/]+$')
-        if allowed[name] and path:sub(1, 5) == '/icub' then
+        if name and name:match(CONFIG.recycle.cubeNamePattern) then
             recycler.cubes[#recycler.cubes + 1] = handle
             local pose = sim.getObjectPose(handle, sim.handle_world)
             recycler.rotations[handle] = {pose[4], pose[5], pose[6], pose[7]}
@@ -63,8 +123,6 @@ end
 local function recycleCubes()
     if not recycler.sensor or recycler.sensor == -1 or
        not recycler.entry or recycler.entry == -1 then return end
-    -- No mover un cubo mientras la ventosa sostiene una pieza.
-    if sim.getInt32Signal('DI_01') == 1 then return end
     local entryPose = sim.getObjectPose(recycler.entry, sim.handle_world)
     local clearance2 = CONFIG.recycle.entryClearance ^ 2
     for _, cube in ipairs(recycler.cubes) do
@@ -325,6 +383,7 @@ local function refreshInventory(force)
     end
     publishManifest()
     lastInventorySignature = signature
+    ensureColorDisplay()
 end
 
 local function resetOutputs()
@@ -421,6 +480,7 @@ function sysCall_sensing()
         sim.setFloatSignal(sensor.red, red)
         sim.setFloatSignal(sensor.green, green)
         sim.setFloatSignal(sensor.blue, blue)
+        updateColorDisplay(sensor, red, green, blue)
     end
     -- Repetir brevemente tras init por si el Lua de ventosa publico despues.
     if manifestRefreshes > 0 then
@@ -431,6 +491,8 @@ end
 
 function sysCall_cleanup()
     resetOutputs()
+    if colorUi and colorUi ~= false then colorUiPlugin.destroy(colorUi) end
+    colorUi = nil
 end
 
 function sysCall_afterSimulation()
@@ -445,5 +507,8 @@ function sysCall_afterSimulation()
         sim.setFloatSignal(sensor.red, 0)
         sim.setFloatSignal(sensor.green, 0)
         sim.setFloatSignal(sensor.blue, 0)
+    end
+    if colorUi and colorUi ~= false then
+        colorUiPlugin.setLabelText(colorUi, 8, 'Simulacion detenida')
     end
 end

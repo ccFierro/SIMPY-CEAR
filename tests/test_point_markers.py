@@ -136,6 +136,21 @@ class NamedPointTests(unittest.TestCase):
         self.assertNotIn("/preToma", sim.objects)
         self.assertIn("/preToma2", sim.objects)
 
+    def test_reconcile_removes_duplicate_marker_from_old_execution_path(self):
+        sim = FakeSim()
+        pose = p[0.1, 0.2, 0.3]
+        reconcile_named_points(sim, {"preToma": pose})
+        canonical = sim.objects["/preToma"]
+        sim.objects["/CEAR_Punto_preToma"] = 9
+        sim.properties[9, TAG] = b"preToma"
+        sim.poses[9] = sim.poses[canonical][:]
+
+        result = reconcile_named_points(sim, {"preToma": pose})
+
+        self.assertEqual(result["deleted"], ["preToma"])
+        self.assertEqual(sim.objects, {"/preToma": canonical})
+        self.assertEqual(result["markers"], [])
+
     def test_assigned_names_only_lists_executed_cell_assignments(self):
         self.assertEqual(assigned_names("preToma = p[1, 2, 3]\nx = 4\ndel x"), {"preToma", "x"})
 

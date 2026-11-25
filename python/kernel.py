@@ -16,7 +16,6 @@ import types
 import numpy as np
 import roboticalab
 from roboticalab import visual, control_panel
-from roboticalab.point_markers import assigned_names, named_poses, reconcile_named_points
 from roboticalab.ur_scene import Pose
 
 PROTOCOL = sys.stdout
@@ -32,7 +31,6 @@ namespace.update({"__builtins__": builtins, "np": np})
 namespace.update({name: getattr(roboticalab, name) for name in roboticalab.__all__})
 namespace["_roboticalab_matmul"] = visual.legacy_matmul
 baseline = dict(namespace)
-cell_point_names = {}
 output_size = 0
 
 
@@ -198,34 +196,6 @@ def execute(job):
         })
     finally:
         sys.settrace(None)
-        if job.get("syncCoppeliaPoints") and status == "ok":
-            cell_id = job["cellId"]
-            previous = cell_point_names.get(cell_id, set())
-            declared = assigned_names(source)
-            poses = named_poses(namespace)
-            cell_point_names[cell_id] = declared & poses.keys()
-            tracked_before = bool(previous or any(cell_point_names.values()))
-            for names in cell_point_names.values():
-                names.intersection_update(poses)
-            active_names = set().union(*cell_point_names.values()) if cell_point_names else set()
-            active_poses = {name: poses[name] for name in active_names}
-        else:
-            tracked_before = False
-        if tracked_before:
-            try:
-                client, sim = roboticalab.connect_coppelia(
-                    host=job.get("coppeliaHost") or "127.0.0.1",
-                    port=job.get("coppeliaPort") or 23000,
-                    timeout=1.5,
-                )
-                try:
-                    result = reconcile_named_points(sim, active_poses)
-                    emit("point_markers", **result)
-                finally:
-                    client.socket.close(linger=0)
-                    client.context.term()
-            except Exception as error:
-                emit("point_markers", markers=[], error=str(error))
         with gate:
             state.update(running=False, paused=False, step=False, stop=False)
         emit("done", status=status, variables=snapshot())

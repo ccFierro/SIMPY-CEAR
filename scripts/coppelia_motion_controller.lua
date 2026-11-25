@@ -160,10 +160,20 @@ local function destinationPose(command, current)
 end
 
 local function prepare(command)
+    local speed = command.speed
+    if speed ~= nil then
+        local jointMotion = command.kind == 'movej'
+        local minimum = jointMotion and 0.05 or 0.01
+        local maximum = jointMotion and 1.2 or 0.2
+        if type(speed) ~= 'number' or speed ~= speed or speed < minimum or speed > maximum then
+            error('Velocidad v fuera del rango permitido para ' .. tostring(command.kind) .. '.')
+        end
+    end
     local root, joints, tcp = jointsFromCommand(command)
     local startQ = currentQ(joints)
     local path = {startQ}
     local context = nil
+    local linearStep, angularStep = 0, 0
     local ok, message = pcall(function()
         if command.kind == 'movej' and type(command.q) == 'table' then
             if #command.q ~= 6 then error('movej requiere seis angulos.') end
@@ -211,6 +221,7 @@ local function prepare(command)
             local step = math.max(0.002, math.min(0.02, tonumber(command.step) or 0.005))
             local segments = math.max(1, math.ceil(length / step), math.ceil(angle / math.rad(5)))
             if segments > 400 then error('La trayectoria supera 400 puntos; dividela en tramos.') end
+            linearStep, angularStep = length / segments, angle / segments
             local seed = startQ
             for i = 1, segments do
                 local pose = sim.interpolatePoses(startPose, targetPose, i / segments)
@@ -228,8 +239,9 @@ local function prepare(command)
     end)
     if context then context.ik.eraseEnvironment(context.env) end
     if not ok then error(message) end
-    return {id = command.id, joints = joints, path = path, segment = 2,
-        fraction = 0, commanded = startQ, started = sim.getSystemTime()}
+    return {id = command.id, kind = command.kind, joints = joints, path = path, segment = 2,
+        fraction = 0, commanded = startQ, started = sim.getSystemTime(), speed = speed,
+        linearStep = linearStep, angularStep = angularStep}
 end
 
 local function prepareJog(command)
@@ -332,7 +344,15 @@ local function advance()
     local origin = motion.path[motion.segment - 1]
     local delta = difference(origin, destination)
     local dt = math.max(0.001, sim.getSimulationTimeStep())
-    motion.fraction = math.min(1, motion.fraction + (delta < 1e-8 and 1 or 0.8 * dt / delta))
+    local increment
+    if motion.kind == 'movel' and motion.speed then
+        local duration = math.max(motion.linearStep / motion.speed,
+            motion.angularStep / 0.8, delta / 1.2)
+        increment = duration < 1e-8 and 1 or dt / duration
+    else
+        increment = delta < 1e-8 and 1 or (motion.speed or 0.8) * dt / delta
+    end
+    motion.fraction = math.min(1, motion.fraction + increment)
     for i, joint in ipairs(motion.joints) do
         local target = origin[i] + motion.fraction * (destination[i] - origin[i])
         sim.setJointTargetPosition(joint, target)
@@ -348,7 +368,7 @@ local function advance()
 end
 
 function sysCall_init()
-    sim.writeCustomTableData(sim.handle_scene, TAG, {version = 1})
+    sim.writeCustomTableData(sim.handle_scene, TAG, {version = 1, speed = true})
     sim.writeCustomTableData(sim.handle_scene, COMMAND, {})
     publish('', 'idle', '')
 end

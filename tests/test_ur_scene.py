@@ -107,6 +107,16 @@ class RobotSceneTests(unittest.TestCase):
         command = robot.sim.tables["SIMPY_motion_command"]
         self.assertEqual(command["kind"], "movel")
         self.assertEqual(command["pose"], [0.3, 0.1, 0.4, 0, 0, 0, 1])
+        robot.sim.tables["SIMPY_motion_v1"]["speed"] = True
+        robot.movej(p[0.2, 0.1, 0.4], v=0.5)
+        self.assertEqual(robot.sim.tables["SIMPY_motion_command"]["speed"], 0.5)
+        robot.movel(p[0.3, 0.1, 0.4], v=0.04)
+        self.assertEqual(robot.sim.tables["SIMPY_motion_command"]["speed"], 0.04)
+        robot.sim.tables["SIMPY_motion_v1"] = {"version": 1}
+        with self.assertRaisesRegex(RuntimeError, "escena UR3 actualizada"):
+            robot.movej(p[0.2, 0.1, 0.4], v=0.5)
+        with self.assertRaisesRegex(ValueError, "movel usa v"):
+            robot.movel(p[0.3, 0.1, 0.4], v=0.5)
         self.assertEqual(robot.sim.commands, [])
 
     def test_analog_conveyor_output_uses_signed_mm_per_second(self):

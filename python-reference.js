@@ -74,8 +74,8 @@
     { id: "movimiento", label: "Movimiento", entries: [
       ["Definir pose", "p[x, y, z, rx, ry, rz]", "X, Y y Z están en metros World; rx, ry y rz son un vector de rotación en radianes. Con solo tres valores se conserva la orientación actual.", "preToma = p[-0.35, 0.335, 0.45, 0, -3.14159, 0]"],
       ["Alinear herramienta", "robot.align_z(1)", "Orienta Z de la herramienta hacia abajo. Usa -1 para orientarla hacia arriba.", "robot.align_z(1)"],
-      ["Movimiento articular", "robot.movej(destino)", "Mueve las articulaciones hacia una pose o una lista de seis ángulos. El TCP no sigue necesariamente una línea.", "robot.movej(preToma)"],
-      ["Movimiento lineal", "robot.movel(destino)", "Desplaza el TCP en línea recta hasta la pose indicada.", "robot.movel(preToma)"],
+      ["Movimiento articular", "robot.movej(destino, v=0.5)", "Mueve las articulaciones hacia una pose o seis ángulos. v es la velocidad articular máxima en rad/s (0.05 a 1.2); si se omite, usa la velocidad anterior. El TCP no sigue necesariamente una línea.", "robot.movej(preToma, v=0.5)"],
+      ["Movimiento lineal", "robot.movel(destino, v=0.05)", "Desplaza el TCP en línea recta. v es la velocidad lineal máxima en m/s (0.01 a 0.2); si se omite, usa la velocidad anterior.", "robot.movel(preToma, v=0.05)"],
       ["Bajar hasta contacto", "robot.lower_until_contact(z_minima)", "Baja en pasos hasta tocar una pieza o alcanzar el límite de Z.", "pieza = robot.lower_until_contact(0.34)"],
       ["Pose del TCP", "robot.tcp_position() / robot.tcp_rotation_vector()", "Lee la posición World y la orientación actual del sensor TCP.", "posicion = robot.tcp_position()\norientacion = robot.tcp_rotation_vector()"],
       ["Cinemática de la escena", "robot.fk(q) / robot.ik(posicion)", "fk devuelve la pose World del TCP para unos ángulos sin mover el robot; sin q lee la postura actual. ik calcula ángulos para un destino usando simIK. Ambos usan la geometría de CoppeliaSim.", "pose_actual = robot.fk()\npose_prevista = robot.fk(robot.q())\nq_destino = robot.ik([0.35, 0, 0.45])"]

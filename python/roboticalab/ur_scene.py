@@ -212,13 +212,20 @@ class RobotUR:
         for joint, angle in zip(self.juntas, q):
             self.sim.setJointTargetPosition(joint, float(angle))
 
-    def _scene_motion(self, kind, destination, step=None):
+    def _scene_motion(self, kind, destination, step=None, speed=None):
         """Delega la ruta y la IK al controlador Lua si la escena lo incluye."""
         if not hasattr(self.sim, "readCustomTableData"):
+            if speed is not None:
+                raise RuntimeError("La escena no incluye un controlador compatible con velocidad. Actualiza la escena.")
             return False
         capability = self.sim.readCustomTableData(self.sim.handle_scene, "SIMPY_motion_v1")
-        if not isinstance(capability, dict) or capability.get("version") != 1:
+        version = capability.get("version", 0) if isinstance(capability, dict) else 0
+        if version != 1:
+            if speed is not None:
+                raise RuntimeError("La escena no incluye un controlador compatible con velocidad. Actualiza la escena.")
             return False
+        if speed is not None and not capability.get("speed"):
+            raise RuntimeError("Esta escena no admite v=. Abre la escena UR3 actualizada con SIMPY_MotionController.")
         status = self.sim.readCustomTableData(self.sim.handle_scene, "SIMPY_motion_status")
         if isinstance(status, dict) and status.get("state") in ("planning", "running"):
             raise RuntimeError("El robot ya está ejecutando otro movimiento.")
@@ -235,6 +242,8 @@ class RobotUR:
                 command["pose"] = _xyz(destination).tolist()
         if step is not None:
             command["step"] = float(step)
+        if speed is not None:
+            command["speed"] = float(speed)
         self.sim.writeCustomTableData(self.sim.handle_scene, "SIMPY_motion_heartbeat",
                                       {"id": command_id, "time": self.sim.getSystemTime()})
         self.sim.writeCustomTableData(self.sim.handle_scene, "SIMPY_motion_command", command)
@@ -287,12 +296,15 @@ class RobotUR:
             if abs(np.sin(q5)) < np.sin(np.radians(2.5)):
                 raise IKNoSolution("La ruta pasa cerca de una singularidad de muñeca. Usa una pose intermedia u otra orientación.")
 
-    def movej(self, q_destino, pasos=35, intervalo=0.04):
-        """Interpola las seis articulaciones; la ruta del TCP puede ser curva."""
+    def movej(self, q_destino, pasos=35, intervalo=0.04, v=None):
+        """Interpola articulaciones; v opcional limita la velocidad en rad/s."""
         self._running()
         if not 2 <= pasos <= 200 or not 0 <= intervalo <= 1:
             raise ValueError("Usa 2 a 200 pasos y un intervalo de 0 a 1 s.")
-        if self._scene_motion("movej", q_destino):
+        if v is not None and (isinstance(v, (bool, np.bool_)) or not isinstance(v, (int, float, np.integer, np.floating)) or
+                              not np.isfinite(v) or not 0.05 <= v <= 1.2):
+            raise ValueError("movej usa v entre 0.05 y 1.2 rad/s.")
+        if self._scene_motion("movej", q_destino, speed=v):
             return self.q()
         if isinstance(q_destino, Pose):
             orientation = q_destino.quaternion
@@ -497,13 +509,16 @@ class RobotUR:
         rotation = _rotation_vector(target_quaternion)
         return self.movel(Pose([*current[:3], *rotation]))
 
-    def movel(self, posicion, paso=0.02):
-        """Avanza por puntos TCP de una línea, resolviendo IK en cada punto."""
+    def movel(self, posicion, paso=0.02, v=None):
+        """Avanza por una línea TCP; v opcional limita la velocidad en m/s."""
         self._running()
         target = posicion.xyz if isinstance(posicion, Pose) else _xyz(posicion)
         if not 0.002 <= paso <= 0.05:
             raise ValueError("El paso lineal debe estar entre 2 y 50 mm.")
-        if self._scene_motion("movel", posicion, step=min(paso, 0.005)):
+        if v is not None and (isinstance(v, (bool, np.bool_)) or not isinstance(v, (int, float, np.integer, np.floating)) or
+                              not np.isfinite(v) or not 0.01 <= v <= 0.2):
+            raise ValueError("movel usa v entre 0.01 y 0.2 m/s.")
+        if self._scene_motion("movel", posicion, step=min(paso, 0.005), speed=v):
             return np.asarray(self.tcp_pose()[:3])
         current_pose = self.tcp_pose()
         start = _xyz(current_pose[:3])
